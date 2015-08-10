@@ -46,7 +46,6 @@ const unsigned char test_nam[]={ //main menu
 };
 
 
-
 const unsigned char palette[16]={ 
 0x29,0x16,0x27,0x38,
 0x29,0x27,0x19,0x18,
@@ -757,7 +756,7 @@ void main(void)
         temp = 255;
         if(craft_lives[0] && temp > craft_y[0]) temp = craft_y[0];
         if(craft_lives[1] && temp > craft_y[1]) temp = craft_y[1];
-        
+        if(temp<150) temp = 142;
         scroll_screen();
 		++frame;
 	}

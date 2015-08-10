@@ -4,8 +4,126 @@ import sys
 parts = []
 grid = {}
 
+pallette = []
 
+def add_pallette(img, pix, colorcount):
+    a = img.size[0] / 16;
+    b = img.size[1] / 16;
+    
+    for j in xrange(b):
+        for i in xrange(a):
+            f = False
+            for p in pallette:
+                br = False
+                for n in xrange(16):
+                    if br:
+                        break
+                    for m in xrange(16):
+                        x = i*16+n
+                        y = j*16+m
+                        if (pix[x, y] in p) == False:
+                            br = True
+                            break
+                            
+                if br == False:
+                    f = p
+                    break
+            
+            if f == False:
+                p = []
+                for n in xrange(16):
+                    for m in xrange(16):
+                        x = i*16+n
+                        y = j*16+m
+                        if (pix[x, y] in p) == False:
+                            p.append(pix[x, y])
+                if len(p)==colorcount:
+                    pallette.append(p)
+
+def find_pallette(img):
+    pix = img.load()
+    add_pallette(img, pix, 4)
+    add_pallette(img, pix, 3)
+    add_pallette(img, pix, 2)
+    add_pallette(img, pix, 1)
+   
+    if len(pallette) > 4:
+        print "Too many colors!"
+        #exit(0)
+    
+    allcolors = {}
+    for p in pallette:
+        for c in p:
+            if c in allcolors:
+                allcolors[c] += 1
+            else:
+                allcolors[c] = 1
+    
+    
+    for p in pallette:
+        if len(p) < 4:
+            for key, value in allcolors.iteritems():
+                if (value in p) == False:
+                    allcolors[key] += 1
+                    
+    bgcolor = False
+    for key, value in allcolors.iteritems():
+        if value >= 4:
+            bgcolor = key
+            break
+            
+    for p in pallette:
+        while len(p) < 4:
+            p.append(bgcolor)
+            
+    pimg = Image.new("RGB", (len(pallette)*4*4, 4), "black")
+    pimgd = pimg.load();
+
+    pallette2 =[]
+    for p in pallette:
+        p2=[]
+        
+        for i in xrange(len(p)):
+            c = p[i]
+            if c == bgcolor:
+                t = (255*4)*10+i
+            else:
+                t = (c[0] + c[1] + c[2])*10+i
+            p2.append(t);
+        p2.sort(reverse=True)
+        
+        sorted_p = []
+        for i in p2:
+            sorted_p.append(p[i%10])
+        pallette2.append(sorted_p)
+        
+    for i in xrange(len(pallette)):
+        pallette[i] = pallette2[i]
+        
+    for i in xrange(len(pallette)):
+        for j in xrange(4):
+            for n in xrange(4):
+                for m in xrange(4):
+                    a = 1
+                    pimgd[i*4*4 + j*4 + n, m] = pallette[i][j]
+    
+    
+    pimg.save("pallette.bmp") 
+    
+
+def addTiles(img):
+    a = img.size[0] / 8;
+    b = img.size[1] / 8;
+    if img.size[0] != 128 and img.size[1] != 128:
+        print "Wrong Size for tile"
+        exit(0)
+        
+    pix = img.load()
+    for j in xrange(b):
+        for i in xrange(a):
+        
 def addTiles(img, addGrid=False):
+        
     a = img.size[0] / 8;
     b = img.size[1] / 8;
 
@@ -56,14 +174,14 @@ def addTiles(img, addGrid=False):
                 
             if addGrid:
                 grid[i, j] = f
-                
-        
 
+img = Image.open("ss2.bmp")
+find_pallette(img)
 
 img = Image.open("tileset_default.bmp")
 addTiles(img)
 
-img = Image.open("bannercrop_2.bmp")
+img = Image.open("ss2.bmp")
 addTiles(img, True)
 
 src = []
@@ -119,14 +237,6 @@ dst.append(0)
 
 print dst
 #
-  
-  
-  
-  
-  
-  
-  
-  
   
   
 yx = 16 * 8

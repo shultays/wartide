@@ -1,10 +1,11 @@
 import Image
 import sys
-
-parts = []
-grid = {}
-
+import itertools
+tiles = []
 pallette = []
+selectedPallettes = {}
+convertedImage = {}
+tileFound = {}
 
 def add_pallette(img, pix, colorcount):
     a = img.size[0] / 16;
@@ -13,7 +14,8 @@ def add_pallette(img, pix, colorcount):
     for j in xrange(b):
         for i in xrange(a):
             f = False
-            for p in pallette:
+            fi = -1
+            for pi, p in enumerate(pallette):
                 br = False
                 for n in xrange(16):
                     if br:
@@ -27,6 +29,7 @@ def add_pallette(img, pix, colorcount):
                             
                 if br == False:
                     f = p
+                    fi = pi
                     break
             
             if f == False:
@@ -38,9 +41,13 @@ def add_pallette(img, pix, colorcount):
                         if (pix[x, y] in p) == False:
                             p.append(pix[x, y])
                 if len(p)==colorcount:
+                    fi = len(pallette)
                     pallette.append(p)
 
-def find_pallette(img):
+            if fi != -1:
+                selectedPallettes[i, j] = fi
+
+def findPallette(img):
     pix = img.load()
     add_pallette(img, pix, 4)
     add_pallette(img, pix, 3)
@@ -76,9 +83,6 @@ def find_pallette(img):
         while len(p) < 4:
             p.append(bgcolor)
             
-    pimg = Image.new("RGB", (len(pallette)*4*4, 4), "black")
-    pimgd = pimg.load();
-
     pallette2 =[]
     for p in pallette:
         p2=[]
@@ -86,7 +90,7 @@ def find_pallette(img):
         for i in xrange(len(p)):
             c = p[i]
             if c == bgcolor:
-                t = (255*4)*10+i
+                t = (255*3)*10+i
             else:
                 t = (c[0] + c[1] + c[2])*10+i
             p2.append(t);
@@ -100,50 +104,23 @@ def find_pallette(img):
     for i in xrange(len(pallette)):
         pallette[i] = pallette2[i]
         
-    for i in xrange(len(pallette)):
-        for j in xrange(4):
-            for n in xrange(4):
-                for m in xrange(4):
-                    a = 1
-                    pimgd[i*4*4 + j*4 + n, m] = pallette[i][j]
-    
-    
-    pimg.save("pallette.bmp") 
-    
 
 def addTiles(img):
     a = img.size[0] / 8;
     b = img.size[1] / 8;
-    if img.size[0] != 128 and img.size[1] != 128:
-        print "Wrong Size for tile"
-        exit(0)
-        
-    pix = img.load()
-    for j in xrange(b):
-        for i in xrange(a):
-        
-def addTiles(img, addGrid=False):
-        
-    a = img.size[0] / 8;
-    b = img.size[1] / 8;
 
-    if addGrid:
-        if a != 32 or b != 30:
-            print "Wrong Size"
-            addGrid = False
-            
     pix = img.load()
-	
+    convert = {}
     for j in xrange(b):
         for i in xrange(a):
             f = -1
             fx = False
             fy = False
-            for pi in xrange(len(parts)):
+            for pi in xrange(len(tiles)):
                 if f != -1:
                     break
                     
-                p = parts[pi]
+                p = tiles[pi]
                 # no flip
                 br = False
                 for n in xrange(8):
@@ -169,30 +146,207 @@ def addTiles(img, addGrid=False):
                         x = i*8+n
                         y = j*8+m
                         p[n, m] = pix[x, y]
-                f = len(parts)
-                parts.append(p)
-                
-            if addGrid:
-                grid[i, j] = f
+                        if (pix[x, y] in convert) == False:
+                            convert[pix[x, y]] = len(convert)
+                f = len(tiles)
+                tiles.append(p)
 
-img = Image.open("ss2.bmp")
-find_pallette(img)
+    perm = list(itertools.permutations([0, 1, 2, 3]))[6]
+    
+    convert[(248, 157, 6)] = perm[0]
+    convert[(129, 226, 0)] = perm[1]
+    convert[(167, 77, 0)] = perm[2]
+    convert[(96, 28, 0)] = perm[3]
+    for t in tiles:
+        for n in xrange(8):
+            for m in xrange(8):
+                t[n, m] = convert[t[n, m]]
+                        
+def convertImage(img):
+    a = img.size[0] / 8;
+    b = img.size[1] / 8;
 
+    pix = img.load()
+	
+    for j in xrange(b):
+        for i in xrange(a):
+            p = pallette[selectedPallettes[i/2, j/2]]
+            for n in xrange(8):
+                for m in xrange(8):
+                    x = i*8+n
+                    y = j*8+m
+                    convertedImage[x, y] = p.index(pix[x, y])
+
+    
+
+def findTiles(img):
+    a = img.size[0] / 8;
+    b = img.size[1] / 8;
+    found = 0
+    notfound = 0
+    for j in xrange(b):
+        for i in xrange(a):
+            fi = -1
+            for ti, t in enumerate(tiles):
+                br = False
+                for n in xrange(8):
+                    if br:
+                        break
+                    for m in xrange(8):
+                        x = i*8+n
+                        y = j*8+m
+                        if convertedImage[x, y] != t[n, m]:
+                            br = True
+                            break
+                if br == False:
+                    fi = ti
+                    break
+            if fi == -1:
+                notfound += 1
+            else:
+                found += 1
+
+            tileFound[i, j] = fi
+    print "found " + str(found) + " not found " + str(notfound)
 img = Image.open("tileset_default.bmp")
 addTiles(img)
 
 img = Image.open("ss2.bmp")
-addTiles(img, True)
+findPallette(img)
 
-src = []
-for j in xrange(30):
-    for i in xrange(32):
-        src.append(grid[i, j])
-  
-  
+sw0 = 3
+sw1 = 0
+p = 3
+t = pallette[p][sw0]
+pallette[p][sw0] = pallette[p][sw1]
+pallette[p][sw1] = t
+
+sw0 = 1
+sw1 = 2
+t = pallette[p][sw0]
+pallette[p][sw0] = pallette[p][sw1]
+pallette[p][sw1] = t
+
+sw0 = 3
+sw1 = 2
+p = 1
+t = pallette[p][sw0]
+pallette[p][sw0] = pallette[p][sw1]
+pallette[p][sw1] = t
+
+
+convertImage(img)
+findTiles(img)
+
+pimg = Image.new("RGB", (len(pallette)*4*4+8, 4), "purple")
+pimgd = pimg.load();
+
+for i in xrange(len(pallette)):
+    for j in xrange(4):
+        for n in xrange(4):
+            for m in xrange(4):
+                pimgd[i*4*4 + j*4 + n+i*2, m] = pallette[i][j]
+pimg.save("pallette.bmp")
+
+color = [(0, 0, 0), (80, 80, 80), (160, 160, 160), (240, 240, 240)]
+
+yx = 16 * 8
+yy = int(1+len(tiles) / 16) * 8
+
+yxd = 16 * 9
+yyd = int(1+len(tiles) / 16) * 9
+
+im = Image.new("RGB", (yx, yy), "black")
+imp = im.load();
+
+imd = Image.new("RGB", (yxd, yyd), "purple")
+impd = imd.load();
+
+i = 0
+j = 0
+
+for p in tiles:
+    for n in xrange(8):
+        for m in xrange(8):
+            imp[n+i*8, m+j*8] = color[p[n, m]]
+            impd[n+i*9, m+j*9] = color[p[n, m]]
+    
+    i+=1
+    if i == 16:
+        i = 0
+        j+=1
+        
+im.save("tiles_out.bmp") 
+imd.save("tiles_out_debug.bmp") 
+
+
+im = Image.new("RGB", (img.size[0], img.size[1]), "black")
+imp = im.load();
+
+imd = Image.new("RGB", (9*img.size[0]/8, 9*img.size[1]/8), "purple")
+impd = imd.load();
+
+
+for i in xrange(img.size[0]):
+    for j in xrange(img.size[1]):
+        imp[i, j] = color[convertedImage[i, j]]
+        impd[i+int(i/8), j+int(j/8)] = color[convertedImage[i, j]]
+
+
+im.save("ss_out.bmp") 
+imd.save("ss_out_debug.bmp") 
+
+im = Image.new("RGB", (img.size[0], img.size[1]), "black")
+imp = im.load();
+
+imd = Image.new("RGB", (9*img.size[0]/8, 9*img.size[1]/8), "purple")
+impd = imd.load();
+
+
+for i in xrange(img.size[0]/8):
+    for j in xrange(img.size[1]/8):
+        ti = tileFound[i, j]
+        if ti == -1:
+            for n in xrange(8):
+                for m in xrange(8):
+                    imp[n+i*8, m+j*8] = (255, 0, 0)
+                    impd[n+i*9, m+j*9] = (255, 0, 0)
+        else:
+            t = tiles[ti]
+            for n in xrange(8):
+                for m in xrange(8):
+                    imp[n+i*8, m+j*8] = color[t[n,m]]
+                    impd[n+i*9, m+j*9] = color[t[n,m]]
+        impd[i+int(i/8), j+int(j/8)] = color[convertedImage[i, j]]
+
+
+im.save("ss_2_out.bmp") 
+imd.save("ss_out_2_debug.bmp") 
+
+
+im = Image.new("RGB", (img.size[0], img.size[1]), "black")
+imp = im.load();
+
+imd = Image.new("RGB", (9*img.size[0]/8, 9*img.size[1]/8), "purple")
+impd = imd.load();
+
+
+for i in xrange(img.size[0]/8):
+    for j in xrange(img.size[1]/8):
+        for n in xrange(8):
+            for m in xrange(8):
+                imp[n+i*8, m+j*8] = color[selectedPallettes[i/2, j/2]]
+                impd[n+i*9, m+j*9] = color[selectedPallettes[i/2, j/2]]
+        
+
+
+im.save("ss_2_pallette.bmp") 
+imd.save("ss_2_pallette_debug.bmp") 
 
 #
 
+grid = {}
+exit(0)
 stat = []
 
 for i in xrange(256):
@@ -235,15 +389,16 @@ for i in xrange(size):
 dst.append(tag)
 dst.append(0)
 
+
 print dst
 #
   
   
 yx = 16 * 8
-yy = int(1+len(parts) / 16) * 8
+yy = int(1+len(tiles) / 16) * 8
 
 yxd = 16 * 9
-yyd = int(1+len(parts) / 16) * 9
+yyd = int(1+len(tiles) / 16) * 9
 
 im = Image.new("RGB", (yx, yy), "black")
 imp = im.load();
@@ -254,7 +409,7 @@ impd = imd.load();
 i = 0
 j = 0
 
-for p in parts:
+for p in tiles:
     for n in xrange(8):
         for m in xrange(8):
             imp[n+i*8, m+j*8] = p[n, m]

@@ -1,5 +1,7 @@
 #include "neslib.h"
 
+#include "menu.h"
+
 
 
 static unsigned char i;
@@ -32,25 +34,13 @@ static unsigned char temp3;
 static unsigned char temp4;
 static unsigned char temp5;
 
-const unsigned char test_nam[]={ //main menu
-1, 0, 1, 134, 39, 40, 1, 15, 41, 0, 1, 13, 42, 43, 1, 15, 44, 0, 1, 13, 42, 43,
- 1, 15, 44, 0, 1, 13, 42, 43, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57
-, 58, 43, 44, 0, 1, 13, 42, 43, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
-71, 72, 43, 44, 0, 1, 13, 42, 43, 1, 15, 44, 0, 1, 13, 42, 43, 1, 3, 73, 74, 75,
- 76, 75, 76, 77, 78, 43, 1, 3, 44, 0, 1, 13, 42, 43, 1, 3, 79, 80, 81, 82, 81, 83, 
- 84, 85, 43, 1, 3, 44, 0, 1, 13, 42, 43, 1, 3, 86, 1, 2, 43, 86, 43, 86, 43, 1
-, 4, 44, 0, 1, 13, 42, 43, 1, 15, 44, 0, 1, 13, 87, 88, 1, 15, 89, 0, 1, 144, 5,
- 0, 28, 25, 14, 37, 18, 30, 0, 20, 14, 26, 18, 0, 1, 50, 6, 0, 28, 25, 14, 37, 18, 
- 30, 0, 20, 14, 26, 18, 0, 1, 50, 18, 27, 32, 18, 30, 0, 16, 4, 17, 18, 0, 1,
-203, 1, 0
-};
-
 
 const unsigned char palette[16]={ 
-0x29,0x16,0x27,0x38,
-0x29,0x27,0x19,0x18,
-0x29,0x27,0x17,0x07,
-0x29,0x21,0x1C,0x3C }; 
+0x29,0x27,0x17,0x07, // mountains
+0x29,0x27,0x19,0x18, // grass
+0x29,0xF,0x2D,0x3D, // menu
+0x29,0x21,0x1C,0xF, // water
+}; 
 
 
 #define CRAFT_BULLET_COUNT 16
@@ -83,11 +73,11 @@ static unsigned char prev_line[18] = {GRASS};
 
 static const unsigned char bg_colors[]={
 	1,
-	2,
+	0,
 	3,
 	1,
 	0,
-    2,
+    0,
 };
 
 unsigned char grand8(){
@@ -123,8 +113,8 @@ void menu(){
                 }
             }
         }
-        spr=oam_spr(0x3E, 0x93 + temp * 16, 0x24, 1, spr);
-        spr=oam_spr(0x3E+8, 0x93 + temp * 16, 0x34, 1, spr);
+        spr=oam_spr(61,   139 + temp * 16, 0x24, 1, spr);
+        spr=oam_spr(61+8, 139 + temp * 16, 0x34, 1, spr);
     }
 }
 
@@ -135,11 +125,11 @@ void init(){
 	pal_bg(palette);
 	
 	vram_adr(NAMETABLE_A);
-	vram_unrle(test_nam);
+	vram_unrle(menu_data);
 	
     //pal_bg_bright(2);
 	
-	update_list[0]=0x20|NT_UPD_HORZ;
+	update_list[0]=NT_UPD_EOF;
 	update_list[1]=0x00;
 	update_list[2]=32;
     
@@ -152,8 +142,6 @@ void init(){
 	set_vram_update(update_list);
 
     //ppu_mask(172);
-    
-    
     
 	ppu_on_all();
     
@@ -737,7 +725,7 @@ void main(void)
     oam_clear();
     while(scr!=240){
 		ppu_wait_frame();
-        temp = 144;
+        temp = 146;
         scroll_screen();
 		++frame;
 	}
@@ -756,7 +744,6 @@ void main(void)
         temp = 255;
         if(craft_lives[0] && temp > craft_y[0]) temp = craft_y[0];
         if(craft_lives[1] && temp > craft_y[1]) temp = craft_y[1];
-        if(temp<150) temp = 142;
         scroll_screen();
 		++frame;
 	}

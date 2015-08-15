@@ -2,10 +2,12 @@ import Image
 import sys
 import itertools
 tiles = []
+tilesid = []
 pallette = []
 selectedPallettes = {}
 convertedImage = {}
 tileFound = {}
+
 
 def add_pallette(img, pix, colorcount):
     a = img.size[0] / 16;
@@ -73,12 +75,7 @@ def findPallette(img):
                 if (value in p) == False:
                     allcolors[key] += 1
                     
-    bgcolor = False
-    for key, value in allcolors.iteritems():
-        if value >= 4:
-            bgcolor = key
-            break
-            
+    bgcolor = (129, 226, 0)
     for p in pallette:
         while len(p) < 4:
             p.append(bgcolor)
@@ -100,10 +97,10 @@ def findPallette(img):
         for i in p2:
             sorted_p.append(p[i%10])
         pallette2.append(sorted_p)
-        
     for i in xrange(len(pallette)):
         pallette[i] = pallette2[i]
         
+    print pallette[0]    
 
 def addTiles(img):
     a = img.size[0] / 8;
@@ -150,7 +147,8 @@ def addTiles(img):
                             convert[pix[x, y]] = len(convert)
                 f = len(tiles)
                 tiles.append(p)
-
+                tilesid.append(i + j*b)
+                
     perm = list(itertools.permutations([0, 1, 2, 3]))[6]
     
     convert[(248, 157, 6)] = perm[0]
@@ -214,15 +212,11 @@ addTiles(img)
 img = Image.open("ss2.bmp")
 findPallette(img)
 
-sw0 = 3
-sw1 = 0
-p = 3
-t = pallette[p][sw0]
-pallette[p][sw0] = pallette[p][sw1]
-pallette[p][sw1] = t
+
+p = 2
 
 sw0 = 1
-sw1 = 2
+sw1 = 3
 t = pallette[p][sw0]
 pallette[p][sw0] = pallette[p][sw1]
 pallette[p][sw1] = t
@@ -233,6 +227,23 @@ p = 1
 t = pallette[p][sw0]
 pallette[p][sw0] = pallette[p][sw1]
 pallette[p][sw1] = t
+
+
+sw0 = 2
+sw1 =1
+p = 3
+t = pallette[p][sw0]
+pallette[p][sw0] = pallette[p][sw1]
+pallette[p][sw1] = t
+
+
+sw0 = 2
+sw1 =3
+p = 3
+t = pallette[p][sw0]
+pallette[p][sw0] = pallette[p][sw1]
+pallette[p][sw1] = t
+
 
 
 convertImage(img)
@@ -344,9 +355,25 @@ im.save("ss_2_pallette.bmp")
 imd.save("ss_2_pallette_debug.bmp") 
 
 #
+src = []
 
-grid = {}
-exit(0)
+for j in xrange(img.size[1]/8):
+    for i in xrange(img.size[0]/8):
+        src.append(tilesid[tileFound[i, j]])
+
+for j in xrange(img.size[1]/32 + 1):
+    for i in xrange(img.size[0]/32):
+        t = 0
+        t |= selectedPallettes[i*2,   j*2]
+        t |= selectedPallettes[i*2+1, j*2]<<2
+        if j != img.size[1]/32:
+            t |= selectedPallettes[i*2,   j*2+1]<<4
+            t |= selectedPallettes[i*2+1, j*2+1]<<6
+        src.append(t)
+
+        
+
+src.append(t)
 stat = []
 
 for i in xrange(256):
@@ -389,36 +416,31 @@ for i in xrange(size):
 dst.append(tag)
 dst.append(0)
 
+f = open('../../menu.h', 'w')
+f.write('const unsigned char menu_data[]={\n') 
+c = 16
+for i in dst:
+    f.write(hex(i)+ ", ") 
+    c-=1
+    if c == 0:
+        c = 16
+        f.write('\n') 
+f.write('};\n\n') 
 
-print dst
+f.write('/*const unsigned char menu_data_full[]={\n') 
+c = 16
+
+for j in xrange(img.size[1]/8):
+    for i in xrange(img.size[0]/8):
+        f.write(hex(tilesid[tileFound[i, j]])+ ", ") 
+        c-=1
+        if c == 0:
+            c = 16
+            f.write('\n') 
+
+f.write('};*/\n\n') 
+
+
+f.close()
 #
   
-  
-yx = 16 * 8
-yy = int(1+len(tiles) / 16) * 8
-
-yxd = 16 * 9
-yyd = int(1+len(tiles) / 16) * 9
-
-im = Image.new("RGB", (yx, yy), "black")
-imp = im.load();
-
-imd = Image.new("RGB", (yxd, yyd), "purple")
-impd = imd.load();
-
-i = 0
-j = 0
-
-for p in tiles:
-    for n in xrange(8):
-        for m in xrange(8):
-            imp[n+i*8, m+j*8] = p[n, m]
-            impd[n+i*9, m+j*9] = p[n, m]
-    
-    i+=1
-    if i == 16:
-        i = 0
-        j+=1
-        
-im.save("tiles_out.bmp") 
-imd.save("tiles_out_debug.bmp") 

@@ -1,7 +1,7 @@
 @echo off
 
 
-call _compile wartide nrom_128_horz
+call _compile wartide nrom_256_horz
 
 
 del *.o

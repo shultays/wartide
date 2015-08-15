@@ -5,7 +5,7 @@
 
 
 static unsigned char i;
-static unsigned char pad,spr;
+static unsigned char pad, spr;
 static unsigned char frame;
 
 
@@ -33,6 +33,7 @@ static unsigned char temp2;
 static unsigned char temp3;
 static unsigned char temp4;
 static unsigned char temp5;
+static unsigned char temp6;
 
 
 const unsigned char palette[16]={ 
@@ -82,6 +83,44 @@ static const unsigned char bg_colors[]={
 
 unsigned char grand8(){
     return craft_x[0] ^ craft_x[1] ^ frame ^ rand8();
+}
+
+static unsigned blocked[15] = {0};
+static unsigned bullet_blocked[15] = {0};
+
+#define IS_BLOCKED(x, y) (blocked[y>>4] & (1<<(x>>4)))
+
+unsigned char isFreeIn(unsigned char x, unsigned char y){
+    if(scr&15)
+    {
+        y += (scr&15);
+    }
+    return !(blocked[y>>4] & (1<<(x>>4)));
+}
+unsigned char isFreeBulletIn(unsigned char x, unsigned char y){
+    if(scr&15)
+    {
+        y += (scr&15);
+    }
+    return !(bullet_blocked[y>>4] & (1<<(x>>4)));
+}
+
+unsigned char isFree(unsigned char x, unsigned char y, unsigned char dir){
+    if(dir == DIR_LEFT) x--;
+    else if(dir == DIR_RIGHT) x++;
+    
+    if(dir == DIR_UP) y--;
+    else if(dir == DIR_DOWN) y++;
+    
+    return isFreeIn(x, y);
+    /*if(dir&3)
+    {
+        return isFreeIn(x, y+1) && isFreeIn(x, y-1) && isFreeIn(x, y);
+    }
+    else
+    {
+        return isFreeIn(x+1, y) && isFreeIn(x-1, y) && isFreeIn(x, y);
+    }*/
 }
 
 void menu(){
@@ -193,11 +232,11 @@ void tick_bullets(){
         break;
         }
         
-        if(craft_bullet_x[i] < 5 || craft_bullet_y[i] < 5 || craft_bullet_x[i] >= 250 || craft_bullet_y[i] >= 250){
+        if(isFreeBulletIn(craft_bullet_x[i], craft_bullet_y[i]) == FALSE || craft_bullet_x[i] < 5 || craft_bullet_y[i] < 5 || craft_bullet_x[i] >= 250 || craft_bullet_y[i] >= 250){
             craft_bullet_y[i] = 255;
             continue;
         }
-        spr=oam_spr(craft_bullet_x[i], craft_bullet_y[i], 0x80, i&1, spr);
+        spr=oam_spr(craft_bullet_x[i]-2, craft_bullet_y[i]-2, 0x80, i&1, spr);
         
     }
 }
@@ -238,25 +277,30 @@ void tick_crafts(){
         }
         temp2 = i | temp2;
         
-        spr=oam_spr(craft_x[i], craft_y[i], temp, temp2, spr);
-        spr=oam_spr(craft_x[i]+8, craft_y[i], temp^0x10, temp2, spr);
+        // temp2 ^= (isFree(craft_x[i]+8, craft_y[i]+8) & (frame&1));
+        
+        spr=oam_spr(craft_x[i]-8, craft_y[i]-8, temp, temp2, spr);
+        spr=oam_spr(craft_x[i],   craft_y[i]-8, temp^0x10, temp2, spr);
         
         
-              
+        temp2 = (pad&(PAD_UP|PAD_DOWN)) && sprite_dirs[i] != DIR_LEFT && sprite_dirs[i] != DIR_RIGHT;
+        temp4 = (pad&(PAD_LEFT|PAD_RIGHT)) && sprite_dirs[i] != DIR_UP && sprite_dirs[i] != DIR_DOWN;
+        
         temp3 = 0;
         sprite_look_dirs[i] = 0;
+        temp5 = 0;
         if(pad&PAD_LEFT){
-            craft_x[i] -= 1;
+            temp5++;
             temp3 |= DIR_LEFT;
-            if((pad&(PAD_UP|PAD_DOWN)) && sprite_dirs[i] != DIR_LEFT){
+            if(temp2){
                 sprite_look_dirs[i] = DIR_LEFT;
             }else{
                 sprite_dirs[i] = DIR_LEFT;
             }
         } else if(pad&PAD_RIGHT){
-            craft_x[i] += 1;
+            temp5++;
             temp3 |= DIR_RIGHT;
-            if((pad&(PAD_UP|PAD_DOWN)) && sprite_dirs[i] != DIR_RIGHT){
+            if(temp2){
                 sprite_look_dirs[i] = DIR_RIGHT;
             }else{
                 sprite_dirs[i] = DIR_RIGHT;
@@ -264,25 +308,40 @@ void tick_crafts(){
         } 
         
         if(pad&PAD_UP){
-            craft_y[i] -= 1;
+            temp5++;
             temp3 |= DIR_UP;
-            if((pad&(PAD_LEFT|PAD_RIGHT)) && sprite_dirs[i] != DIR_UP){
+            if(temp4){
                 sprite_look_dirs[i] = DIR_LEFT;
             }else{
                 sprite_dirs[i] = DIR_UP;
             }
         } else if(pad&PAD_DOWN){
-            craft_y[i] += 1;
+            temp5++;
             temp3 |= DIR_DOWN;
-            if((pad&(PAD_LEFT|PAD_RIGHT)) && sprite_dirs[i] != DIR_DOWN){
+            if(temp4){
                 sprite_look_dirs[i] = DIR_RIGHT;
             }else{
                 sprite_dirs[i] = DIR_DOWN;
             }
         }
-        
-        if(craft_x[i] < 3) craft_x[i] = 3;
-        else if(craft_x[i] >= 253-16) craft_x[i] = 253-16;
+        if(temp5 == 1 || (frame&3) != 0)
+        {
+            if((temp3&DIR_LEFT) && isFree(craft_x[i], craft_y[i], DIR_LEFT)){
+                craft_x[i]--;
+            }
+            if((temp3&DIR_RIGHT) && isFree(craft_x[i], craft_y[i], DIR_RIGHT)){
+                craft_x[i]++;
+            }
+        }
+        if(temp5 == 1 || (frame&3) != 1)
+        {
+            if((temp3&DIR_UP) && isFree(craft_x[i], craft_y[i], DIR_UP)){
+                craft_y[i]--;
+            }
+            if((temp3&DIR_DOWN) && ((pad&PAD_A)|| isFree(craft_x[i], craft_y[i], DIR_DOWN))){
+                craft_y[i]++;
+            }
+        }
         
         if(craft_y[i] >= 253-32) craft_y[i] = 253-32;
         
@@ -290,8 +349,8 @@ void tick_crafts(){
             if(pad&PAD_A){
                 for(temp=i; temp < CRAFT_BULLET_COUNT; temp += 2){
                     if(craft_bullet_y[temp] != 255) continue;
-                    craft_bullet_x[temp] = craft_x[i]+7;
-                    craft_bullet_y[temp] = craft_y[i]+7;
+                    craft_bullet_x[temp] = craft_x[i];
+                    craft_bullet_y[temp] = craft_y[i];
                     craft_bullet_flag[temp] = temp3 | sprite_dirs[i];
                     craft_bullet_timers[i] = 8;
                     break;
@@ -575,9 +634,34 @@ void scroll_screen(){
                         current_line[i] = WALL_GREEN;
                     }
                 }
+                
+                for(i=14; i>0; i--)
+                {
+                    blocked[i] = blocked[i-1];
+                    bullet_blocked[i] = bullet_blocked[i-1];
+                }
+                blocked[0] = 0;
+                bullet_blocked[0] = 0;
+                for(i=0; i<16; i++)
+                {
+                    temp4 = i+1;
+                    if(current_line[i+1] != GRASS)
+                    {
+                        if(temp6 && i != 0 && i != 15){
+                            current_line[i+1] = GRASS;
+                        }else{
+                            blocked[0] |= (1<<i);
+                        }
+                        
+                        if(current_line[i+1] != WATER)
+                        {
+                            bullet_blocked[0] |= (1<<i);
+                        }
+                    }
+                    
+                }
             }
             
-
             for(i=0; i<32; i++){
                 temp4 = 1+(i>>1);
                 switch(current_line[temp4]){
@@ -683,8 +767,6 @@ void scroll_screen(){
                         update_list[38+i] += (bg_colors[current_line[1 + (i<<1)]] | (bg_colors[current_line[1 + (i<<1)+1]]<<2));
                     }
                 }
-                
-                
             }
         }
         
@@ -726,13 +808,14 @@ void main(void)
     while(scr!=240){
 		ppu_wait_frame();
         temp = 146;
+        temp6 = scr > 400;
         scroll_screen();
 		++frame;
 	}
 	craft_x[0]=78;
-	craft_y[0]=180;
+	craft_y[0]=200;
 	craft_x[1]=178;
-	craft_y[1]=180;
+	craft_y[1]=200;
     
 	while(1){
 		ppu_wait_frame();

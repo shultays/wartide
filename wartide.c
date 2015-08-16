@@ -12,6 +12,10 @@ static unsigned char frame;
 static unsigned char craft_x[2];
 static unsigned char craft_y[2];
 
+static unsigned char wall_hit_x[2];
+static unsigned char wall_hit_y[2];
+static unsigned char wall_hit_hp[2];
+
 #define DIR_UP 1
 #define DIR_RIGHT 2
 #define DIR_DOWN 4
@@ -85,24 +89,18 @@ unsigned char grand8(){
     return craft_x[0] ^ craft_x[1] ^ frame ^ rand8();
 }
 
-static unsigned blocked[15] = {0};
-static unsigned bullet_blocked[15] = {0};
+static unsigned int blocked[15] = {0};
+static unsigned int bullet_blocked[15] = {0};
 
 #define IS_BLOCKED(x, y) (blocked[y>>4] & (1<<(x>>4)))
 
-unsigned char isFreeIn(unsigned char x, unsigned char y){
-    if(scr&15)
-    {
-        y += (scr&15);
-    }
-    return !(blocked[y>>4] & (1<<(x>>4)));
+unsigned char isCellBulletFree(unsigned char i, unsigned char j){
+    return !(bullet_blocked[j] & (1<<(i)));
 }
-unsigned char isFreeBulletIn(unsigned char x, unsigned char y){
-    if(scr&15)
-    {
-        y += (scr&15);
-    }
-    return !(bullet_blocked[y>>4] & (1<<(x>>4)));
+
+unsigned char isFreeIn(unsigned char x, unsigned char y){
+    y += (scr&15);
+    return !(blocked[y>>4] & (1<<(x>>4)));
 }
 
 unsigned char isFree(unsigned char x, unsigned char y, unsigned char dir){
@@ -231,11 +229,121 @@ void tick_bullets(){
             craft_bullet_x[i] -= 2;
         break;
         }
-        
-        if(isFreeBulletIn(craft_bullet_x[i], craft_bullet_y[i]) == FALSE || craft_bullet_x[i] < 5 || craft_bullet_y[i] < 5 || craft_bullet_x[i] >= 250 || craft_bullet_y[i] >= 250){
+        if(craft_bullet_y[i] < 10 || craft_bullet_x[i] >= 245 || craft_bullet_y[i] >= 245 || craft_bullet_y[i] < 10){
             craft_bullet_y[i] = 255;
             continue;
         }
+        temp2 = (craft_bullet_y[i] + (scr&15))>>4;
+        temp3 = craft_bullet_x[i]>>4;
+        
+        if(isCellBulletFree(temp3, temp2) == FALSE)
+        {
+            if(wall_hit_hp[i&1] == 0 ||(wall_hit_x[i&1]&15) != temp3 || (wall_hit_y[i&1]&15) != temp2)
+            {
+                wall_hit_x[i&1] = (wall_hit_x[i&1]&0xF0) | temp3;
+                wall_hit_y[i&1] = (wall_hit_y[i&1]&0xF0) | temp2;
+                wall_hit_hp[i&1] = 15;
+            }
+            wall_hit_hp[i&1]--;
+            if(wall_hit_hp[i&1] == 0 && temp3 != 0 && temp3 != 15)
+            {
+            
+                temp6 = 1;
+                bullet_blocked[temp2] ^= (1<<temp3);
+                blocked[temp2] ^= (1<<temp3);
+                temp = row_index;
+                if(temp&1) temp--;
+                temp +=(temp2<<1);
+                if(temp>=60) temp-=60;
+                if(temp<30){
+                    adr = NAMETABLE_A+(temp<<5);
+                }else{
+                    temp-=30;
+                    adr = NAMETABLE_C+(temp<<5);
+                }
+                adr += temp3<<1;
+                update_list[0]=MSB(adr)|NT_UPD_HORZ;
+                update_list[1]=LSB(adr);
+                
+                update_list[2] = 2;
+                update_list[5]=NT_UPD_EOF;
+                
+                adr += 32;
+                update_list[5]=MSB(adr)|NT_UPD_HORZ;
+                update_list[6]=LSB(adr);
+                update_list[7] = 2;
+                
+                
+                update_list[10]=NT_UPD_EOF;
+                
+                temp5 = 0;
+                if(temp2)
+                    temp5 |= (!isCellBulletFree(temp3, temp2-1) || (((wall_hit_x[i&1])>>4) == temp3 && ((wall_hit_y[i&1])>>4) == temp2-1));
+                if(temp3)
+                    temp5 |= (!isCellBulletFree(temp3-1, temp2) || (((wall_hit_x[i&1])>>4) == temp3-1 && ((wall_hit_y[i&1])>>4) == temp2))<<1;
+                    
+                if(temp2<14)
+                    temp5 |= (!isCellBulletFree(temp3, temp2+1) || (((wall_hit_x[i&1])>>4) == temp3 && ((wall_hit_y[i&1])>>4) == temp2+1))<<2;
+                if(temp3<15)
+                    temp5 |= (!isCellBulletFree(temp3+1, temp2) || (((wall_hit_x[i&1])>>4) == temp3+1 && ((wall_hit_y[i&1])>>4) == temp2))<<3;
+                    
+                // 1 up
+                // 2 left
+                // 4 bottom
+                // 8 right
+                
+                // update_list[3] = 0xB0;
+                // update_list[4] = 0xB1;
+                // update_list[8] = 0xC0;
+                // update_list[9] = 0xC1;
+                    
+                
+                if((temp5 & 3) == 3)
+                    update_list[3] = 0xB0;
+                else if(temp5 & 1)
+                    update_list[3] = 0xB4;
+                else if(temp5 & 2)
+                    update_list[3] = 0xB2;
+                else 
+                    update_list[3] = 0;
+                    
+                if((temp5 & 9) == 9)
+                    update_list[4] = 0xB1;
+                else if(temp5 & 1)
+                    update_list[4] = 0xB5;
+                else if(temp5 & 8)
+                    update_list[4] = 0xB3;
+                else 
+                    update_list[4] = 0;
+                
+                
+                if((temp5 & 6) == 6)
+                    update_list[8] = 0xC0;
+                else if(temp5 & 4)
+                    update_list[8] = 0xC4;
+                else if(temp5 & 2)
+                    update_list[8] = 0xC2;
+                else 
+                    update_list[8] = 0;
+                    
+                if((temp5 & 12) == 12)
+                    update_list[9] = 0xC1;
+                else if(temp5 & 4)
+                    update_list[9] = 0xC5;
+                else if(temp5 & 8)
+                    update_list[9] = 0xC3;
+                else 
+                    update_list[9] = 0;
+                    
+                    
+                wall_hit_x[i&1] <<= 4;
+                wall_hit_y[i&1] <<= 4;
+            }
+            
+            craft_bullet_y[i] = 255;
+            continue;
+        }
+        
         spr=oam_spr(craft_bullet_x[i]-2, craft_bullet_y[i]-2, 0x80, i&1, spr);
         
     }
@@ -429,6 +537,7 @@ void scroll_screen(){
         if(temp>=60) temp-=60;
         if(row_index != temp){
             row_index = temp;
+            update_list[2]=32;
             if(temp<30){
                 adr = NAMETABLE_A+(temp<<5);
                 update_list[0]=MSB(adr)|NT_UPD_HORZ;
@@ -451,6 +560,13 @@ void scroll_screen(){
             }
  
             if(temp&1){
+                if(wall_hit_hp[0]){
+                    wall_hit_y[0] += 16;
+                }
+                if(wall_hit_hp[1]){
+                    wall_hit_y[1] += 16;
+                }
+            
                 for(i=2; i<16; i++){
                     prev_line[i] = current_line[i];
                     current_line[i] = next_line[i];
@@ -651,12 +767,12 @@ void scroll_screen(){
                             current_line[i+1] = GRASS;
                         }else{
                             blocked[0] |= (1<<i);
+                            if(current_line[i+1] != WATER)
+                            {
+                                bullet_blocked[0] |= (1<<i);
+                            }
                         }
                         
-                        if(current_line[i+1] != WATER)
-                        {
-                            bullet_blocked[0] |= (1<<i);
-                        }
                     }
                     
                 }
@@ -781,6 +897,11 @@ void reset(){
 	craft_x[1]=178;
 	craft_y[1]=180;
     
+    wall_hit_x[0] = 255;
+    wall_hit_x[1] = 255;
+    wall_hit_hp[0] = 0;
+    wall_hit_hp[1] = 0;
+    
     sprite_dirs[0] = DIR_UP;
     sprite_dirs[1] = DIR_UP;
     
@@ -812,6 +933,7 @@ void main(void)
         scroll_screen();
 		++frame;
 	}
+    temp6 = 0;
 	craft_x[0]=78;
 	craft_y[0]=200;
 	craft_x[1]=178;
@@ -827,7 +949,13 @@ void main(void)
         temp = 255;
         if(craft_lives[0] && temp > craft_y[0]) temp = craft_y[0];
         if(craft_lives[1] && temp > craft_y[1]) temp = craft_y[1];
-        scroll_screen();
+        if(temp6){
+            temp6 = 0;
+        }
+        else
+        {
+            scroll_screen();
+        }
 		++frame;
 	}
 }

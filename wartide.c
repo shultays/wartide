@@ -3,19 +3,6 @@
 #include "menu.h"
 
 
-
-static unsigned char i;
-static unsigned char pad, spr;
-static unsigned char frame;
-
-
-static unsigned char craft_x[2];
-static unsigned char craft_y[2];
-
-static unsigned char wall_hit_x[2];
-static unsigned char wall_hit_y[2];
-static unsigned char wall_hit_hp[2];
-
 #define DIR_UP 1
 #define DIR_RIGHT 2
 #define DIR_DOWN 4
@@ -26,10 +13,26 @@ static unsigned char wall_hit_hp[2];
 #define DIR_DOWN_LEFT (DIR_DOWN | DIR_LEFT)
 #define DIR_UP_LEFT (DIR_UP | DIR_LEFT)
 
+static unsigned char i;
+static unsigned char pad, spr;
+static unsigned char frame;
 
-static unsigned char sprite_dirs[2] = {DIR_UP, DIR_RIGHT};
-static unsigned char sprite_look_dirs[2] = {0, 0};
-static unsigned char craft_types[2] = {0, 1};
+static unsigned char craft_x[6];
+static unsigned char craft_y[6];
+
+static unsigned char sprite_dirs[6] = {DIR_UP, DIR_UP, DIR_DOWN, DIR_DOWN, DIR_DOWN, DIR_DOWN};
+static unsigned char sprite_look_dirs[6] = {0, 0, 0, 0, 0, 0};
+static unsigned char craft_types[6] = {0, 1, 1, 1, 1, 1};
+static unsigned char craft_hps[6] = {0, 1, 1, 1, 1, 1};
+
+static unsigned char craft_flags[6] = {0, 0, 0, 0, 0, 0};
+
+static unsigned char enemy_spawn_scr;
+
+static unsigned char wall_hit_x[2];
+static unsigned char wall_hit_y[2];
+static unsigned char wall_hit_hp[2];
+
 static unsigned char craft_lives[2] = {3, 3};
 
 static unsigned char temp;
@@ -39,15 +42,19 @@ static unsigned char temp4;
 static unsigned char temp5;
 static unsigned char temp6;
 
-
-const unsigned char palette[16]={ 
+const unsigned char palette[]={ 
 0x29,0x27,0x17,0x07, // mountains
 0x29,0x27,0x19,0x18, // grass
 0x29,0xF,0x2D,0x3D, // menu
 0x29,0x21,0x1C,0xF, // water
+
+0x29, 0x37, 0x26, 0x17,
+0x29, 0x31, 0x22, 0x11,
+0x29, 0x33, 0x23, 0x13,
+0x29, 0xF, 0xF, 0xF,
 }; 
 
-
+#define MAX_Y (253-16)
 #define CRAFT_BULLET_COUNT 16
 
 static unsigned char craft_bullet_x[CRAFT_BULLET_COUNT];
@@ -138,7 +145,7 @@ void menu(){
             } else if(pad&PAD_DOWN){
                 ++temp;
                 if(temp == 3) temp = 0;
-            } else if(pad&(PAD_A|PAD_B)){
+            } else if(pad&(PAD_A|PAD_B|PAD_START|PAD_SELECT)){
                 if(temp == 0){
                     craft_lives[0] = 3;
                     craft_lives[1] = 0;
@@ -155,11 +162,54 @@ void menu(){
     }
 }
 
+void draw_tank(){
+    temp = craft_types[i]?0x00:0x40;
+    
+    switch(sprite_dirs[i]){
+    case DIR_UP:
+        temp += 0x04;
+        temp2 = 0;
+    break;
+    case DIR_RIGHT:
+        temp += 0x24;
+        temp2 = 0;
+    break;
+    case DIR_DOWN:
+        temp += 0x04;
+        temp2 = OAM_FLIP_V;
+    break;
+    case DIR_LEFT:
+        temp += 0x34;
+        temp2 = OAM_FLIP_H;
+    break;
+    }
+    if(sprite_look_dirs[i] == DIR_LEFT){
+        temp += 0x08;
+    }else if(sprite_look_dirs[i] == DIR_RIGHT){
+        temp += 0x04;
+    }
+    
+    if(i < 2){
+        if((pad&(PAD_LEFT|PAD_RIGHT|PAD_UP|PAD_DOWN)) && (frame & 8)){
+            temp += 2;
+        }
+        temp2 = i | temp2;
+    }else{
+        temp2 |= 2;
+        if(frame & 8){
+            temp += 2;
+        }
+    }
+    
+    spr=oam_spr(craft_x[i]-8, craft_y[i]-8, temp, temp2, spr);
+    spr=oam_spr(craft_x[i],   craft_y[i]-8, temp^0x10, temp2, spr);
+}
+
 void init(){
     oam_size(1);
     bank_spr(0);
     bank_bg(1);
-	pal_bg(palette);
+	pal_all(palette);
 	
 	vram_adr(NAMETABLE_A);
 	vram_unrle(menu_data);
@@ -185,13 +235,6 @@ void init(){
 
 	frame=0;
 
-    pal_col(17, 0x37);
-    pal_col(18, 0x26);
-    pal_col(19, 0x17);
-                
-    pal_col(21, 0x31);
-    pal_col(22, 0x22);
-    pal_col(23, 0x11);
 }
 void tick_bullets(){
     for(i=0; i<CRAFT_BULLET_COUNT; ++i){
@@ -344,6 +387,19 @@ void tick_bullets(){
             continue;
         }
         
+        for(temp2=2; temp2<6; temp2++){
+            if(craft_types[temp2] != 255){
+                if(craft_bullet_x[i] > craft_x[temp2]-6 && craft_bullet_x[i] < craft_x[temp2]+6 && craft_bullet_y[i] > craft_y[temp2]-6 && craft_bullet_y[i] < craft_y[temp2]+6){
+                    if(craft_hps[temp2] > 0){
+                        craft_hps[temp2]--;
+                        
+                        craft_bullet_y[i] = 255;
+                        continue;
+                    }
+                }
+            }
+         
+        }
         spr=oam_spr(craft_bullet_x[i]-2, craft_bullet_y[i]-2, 0x80, i&1, spr);
         
     }
@@ -351,45 +407,10 @@ void tick_bullets(){
 void tick_crafts(){
     for(i=0;i<2;++i){
         if(!craft_lives[i]) continue;
-        
-        temp = craft_types[i]?0x00:0x40;
-        
-        switch(sprite_dirs[i]){
-        case DIR_UP:
-            temp += 0x04;
-            temp2 = 0;
-        break;
-        case DIR_RIGHT:
-            temp += 0x24;
-            temp2 = 0;
-        break;
-        case DIR_DOWN:
-            temp += 0x04;
-            temp2 = OAM_FLIP_V;
-        break;
-        case DIR_LEFT:
-            temp += 0x34;
-            temp2 = OAM_FLIP_H;
-        break;
-        }
-        if(sprite_look_dirs[i] == DIR_LEFT){
-            temp += 0x08;
-        }else if(sprite_look_dirs[i] == DIR_RIGHT){
-            temp += 0x04;
-        }
-        
+      
         pad=pad_poll(i);
         
-        if((pad&(PAD_LEFT|PAD_RIGHT|PAD_UP|PAD_DOWN)) && (frame & 8)){
-            temp += 2;
-        }
-        temp2 = i | temp2;
-        
-        // temp2 ^= (isFree(craft_x[i]+8, craft_y[i]+8) & (frame&1));
-        
-        spr=oam_spr(craft_x[i]-8, craft_y[i]-8, temp, temp2, spr);
-        spr=oam_spr(craft_x[i],   craft_y[i]-8, temp^0x10, temp2, spr);
-        
+        draw_tank();
         
         temp2 = (pad&(PAD_UP|PAD_DOWN)) && sprite_dirs[i] != DIR_LEFT && sprite_dirs[i] != DIR_RIGHT;
         temp4 = (pad&(PAD_LEFT|PAD_RIGHT)) && sprite_dirs[i] != DIR_UP && sprite_dirs[i] != DIR_DOWN;
@@ -451,7 +472,7 @@ void tick_crafts(){
             }
         }
         
-        if(craft_y[i] >= 253-32) craft_y[i] = 253-32;
+        if(craft_y[i] >= MAX_Y) craft_y[i] = MAX_Y;
         
         if(craft_bullet_timers[i] == 0){
             if(pad&PAD_A){
@@ -514,11 +535,14 @@ static const char wall_tiles[] = {0x80,
 void scroll_screen(){
     if(temp < 150){
         temp2 = 150 - temp;
-        
-        for(i=0;i<2;++i){
-            if(!craft_lives[i]) continue;
+        if(enemy_spawn_scr > temp2){
+            enemy_spawn_scr -= temp2;
+        }else{
+            enemy_spawn_scr = 0;
+        }
+        for(i=0;i<6;++i){
             craft_y[i] += temp2;
-            if(craft_y[i] >= 253-32) craft_y[i] = 253-32;
+            if(craft_y[i] >= MAX_Y+1) craft_y[i] = MAX_Y+1;
         }
         
         for(i=0; i<CRAFT_BULLET_COUNT; ++i){
@@ -892,6 +916,7 @@ void scroll_screen(){
 }
 
 void reset(){
+
 	craft_x[0]=78;
 	craft_y[0]=180;
 	craft_x[1]=178;
@@ -918,6 +943,102 @@ void reset(){
     current_wall = 0;
     prev_wall = 0;
 }
+
+void tick_enemies(){
+    for(i=2; i<6; i++){
+        if(craft_types[i] == 255){
+            if(enemy_spawn_scr == 0){
+                enemy_spawn_scr = 32 + (rand8()&31);
+                temp = rand8()&15;
+                while((blocked[0] & (1<<temp))){
+                    temp++;
+                    if(temp == 16) temp = 0;
+                }                    
+                
+                craft_x[i] = temp*16 + (rand8()&7);
+                craft_y[i] = 0;
+                sprite_dirs[i] = DIR_DOWN;
+                sprite_look_dirs[i] = 0;
+                craft_types[i] = 1;
+                craft_flags[i] = 15;
+                craft_hps[i] = 4;
+            }
+        }
+        
+        if(craft_types[i] != 255){
+            temp = (sprite_dirs[i]>0)+(sprite_look_dirs[i]>0);
+            temp2 = sprite_dirs[i];
+            temp3 = craft_x[i];
+            temp4 = craft_y[i];
+            
+            if(temp == 1 || (frame&3) != 0){
+                if(temp2&DIR_LEFT){
+                    craft_x[i]--;
+                }
+                if(temp2&DIR_RIGHT){
+                    craft_x[i]++;
+                }
+            }
+            if(temp == 1 || (frame&3) != 1){
+                if(temp2&DIR_UP){
+                    craft_y[i]--;
+                }
+                if(temp2&DIR_DOWN){
+                    craft_y[i]++;
+                }
+            }
+            temp2 = craft_flags[i]&15;
+            if(temp2 && (frame & 7) == 0){
+                craft_flags[i]--;
+            }
+            if(temp2 == 0 || (craft_y[i] < 20 && sprite_dirs[i] == DIR_UP)   || (craft_y[i] > 220 && sprite_dirs[i] == DIR_DOWN)|| isFreeIn(craft_x[i], craft_y[i]) == FALSE){
+                craft_x[i] = temp3;
+                craft_y[i] = temp4;
+                
+                temp3 = 0;
+                temp3 |= sprite_dirs[i];
+                
+                if(isFreeIn(craft_x[i], craft_y[i]-1) == FALSE){
+                    temp3 |= DIR_UP;
+                }
+                if(isFreeIn(craft_x[i], craft_y[i]+1) == FALSE){
+                    temp3 |= DIR_DOWN;
+                }
+                if(isFreeIn(craft_x[i]-1, craft_y[i]) == FALSE){
+                    temp3 |= DIR_LEFT;
+                }
+                if(isFreeIn(craft_x[i]+1, craft_y[i]) == FALSE){
+                    temp3 |= DIR_RIGHT;
+                }
+                
+                if(craft_y[i] < 20){
+                    temp3 |= DIR_UP;
+                }
+                if(craft_y[i] > 220){
+                    temp3 |= DIR_DOWN;
+                }
+                craft_flags[i] = (craft_flags[i]&0xF0) + 4 + (rand8()&11);
+                if(temp3){
+                    temp2 = rand8()&3;
+                    
+                    do{
+                        sprite_dirs[i] = (1<<(rand8()&3));
+                    }while(sprite_dirs[i]&temp3);
+                }else{
+                    sprite_dirs[i] = (1<<(rand8()&3));
+                }
+                
+            }
+            if(craft_y[i] >= MAX_Y-1 || craft_hps[i] == 0){
+                craft_types[i] = 255;
+                continue;
+            }
+            draw_tank();
+        }
+    }
+
+}
+
 void main(void)
 {
 	init();
@@ -938,12 +1059,20 @@ void main(void)
 	craft_y[0]=200;
 	craft_x[1]=178;
 	craft_y[1]=200;
+
+    craft_types[2] = 255;
+    craft_types[3] = 255;
+    craft_types[4] = 255;
+    craft_types[5] = 255;
+    
+    enemy_spawn_scr = 10;
     
 	while(1){
 		ppu_wait_frame();
         oam_clear();
 		spr=0;
         tick_crafts();
+        tick_enemies();
         tick_bullets();
             
         temp = 255;

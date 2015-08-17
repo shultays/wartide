@@ -1018,14 +1018,18 @@ void tick_enemies(){
                     temp3 |= DIR_DOWN;
                 }
                 craft_flags[i] = (craft_flags[i]&0xF0) + 4 + (rand8()&11);
-                if(temp3){
+                
+                if(temp3 == 0xF){
+                    craft_types[i] = 255;
+                    continue;
+                }else if(temp3 == 0){
+                    sprite_dirs[i] = (1<<(rand8()&3));
+                } else {
                     temp2 = rand8()&3;
                     
                     do{
                         sprite_dirs[i] = (1<<(rand8()&3));
                     }while(sprite_dirs[i]&temp3);
-                }else{
-                    sprite_dirs[i] = (1<<(rand8()&3));
                 }
                 
             }

@@ -111,21 +111,20 @@ unsigned char isFreeIn(unsigned char x, unsigned char y){
 }
 
 unsigned char isFree(unsigned char x, unsigned char y, unsigned char dir){
-    if(dir == DIR_LEFT) x--;
-    else if(dir == DIR_RIGHT) x++;
+    if(dir == DIR_LEFT) x-=3;
+    else if(dir == DIR_RIGHT) x+=3;
     
-    if(dir == DIR_UP) y--;
-    else if(dir == DIR_DOWN) y++;
+    if(dir == DIR_UP) y-=3;
+    else if(dir == DIR_DOWN) y+=3;
     
-    return isFreeIn(x, y);
-    /*if(dir&3)
+    if(dir&3)
     {
-        return isFreeIn(x, y+1) && isFreeIn(x, y-1) && isFreeIn(x, y);
+        return isFreeIn(x, y+2) && isFreeIn(x, y-2)/* && isFreeIn(x, y)*/;
     }
     else
     {
-        return isFreeIn(x+1, y) && isFreeIn(x-1, y) && isFreeIn(x, y);
-    }*/
+        return isFreeIn(x+2, y) && isFreeIn(x-2, y)/* && isFreeIn(x, y)*/;
+    }
 }
 
 void menu(){
@@ -285,7 +284,7 @@ void tick_bullets(){
             {
                 wall_hit_x[i&1] = (wall_hit_x[i&1]&0xF0) | temp3;
                 wall_hit_y[i&1] = (wall_hit_y[i&1]&0xF0) | temp2;
-                wall_hit_hp[i&1] = 15;
+                wall_hit_hp[i&1] = 10;
             }
             wall_hit_hp[i&1]--;
             if(wall_hit_hp[i&1] == 0 && temp3 != 0 && temp3 != 15)
@@ -467,7 +466,7 @@ void tick_crafts(){
             if((temp3&DIR_UP) && isFree(craft_x[i], craft_y[i], DIR_UP)){
                 craft_y[i]--;
             }
-            if((temp3&DIR_DOWN) && ((pad&PAD_A)|| isFree(craft_x[i], craft_y[i], DIR_DOWN))){
+            if((temp3&DIR_DOWN) && isFree(craft_x[i], craft_y[i], DIR_DOWN)){
                 craft_y[i]++;
             }
         }
@@ -961,7 +960,7 @@ void tick_enemies(){
                 sprite_look_dirs[i] = 0;
                 craft_types[i] = 1;
                 craft_flags[i] = 15;
-                craft_hps[i] = 4;
+                craft_hps[i] = 2;
             }
         }
         
@@ -991,7 +990,7 @@ void tick_enemies(){
             if(temp2 && (frame & 7) == 0){
                 craft_flags[i]--;
             }
-            if(temp2 == 0 || (craft_y[i] < 20 && sprite_dirs[i] == DIR_UP)   || (craft_y[i] > 220 && sprite_dirs[i] == DIR_DOWN)|| isFreeIn(craft_x[i], craft_y[i]) == FALSE){
+            if(temp2 == 0 || (craft_y[i] < 20 && sprite_dirs[i] == DIR_UP) || (craft_y[i] > 220 && sprite_dirs[i] == DIR_DOWN)|| isFreeIn(craft_x[i], craft_y[i]) == FALSE){
                 craft_x[i] = temp3;
                 craft_y[i] = temp4;
                 

@@ -36,15 +36,14 @@ void main(void)
 {
 	init();
     
-    oam_spr(10, 111-64, 61, 0, 0);
+    oam_spr(10, 31, 61, 0, 0);
 	while(1){
     
-        scroll(tt&1, 0);
+        scroll(0, 0);
 
 		ppu_wait_nmi();//not ppu_wait_frame, because every 6th frame would not have the split
         split_vertical(tt);
 
-        scroll(tt, 0);
 		tt++;
         
 	}

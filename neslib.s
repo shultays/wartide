@@ -8,7 +8,7 @@
 	.export _ppu_off,_ppu_on_all,_ppu_on_bg,_ppu_on_spr,_ppu_mask,_ppu_system
 	.export _oam_clear,_oam_size,_oam_spr,_oam_meta_spr,_oam_hide_rest
 	.export _ppu_wait_frame,_ppu_wait_nmi
-	.export _scroll,_split
+	.export _scroll,_split, _split_vertical
 	.export _bank_spr,_bank_bg
 	.export _vram_read,_vram_write
 	.export _music_play,_music_stop,_music_pause
@@ -604,6 +604,29 @@ _scroll:
 	and #$fc
 	ora <TEMP
 	sta <PPU_CTRL_VAR
+	rts
+
+
+
+;;void __fastcall__ split_vertical(unsigned int y);
+
+_split_vertical:
+
+@3:
+
+	bit PPU_STATUS
+	bvs @3
+
+@4:
+
+	bit PPU_STATUS
+	bvc @4
+
+	lda #0
+	sta PPU_SCROLL
+	lda #50
+	sta PPU_SCROLL
+
 	rts
 
 

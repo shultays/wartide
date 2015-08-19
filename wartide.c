@@ -127,6 +127,15 @@ unsigned char isFree(unsigned char x, unsigned char y, unsigned char dir){
     }
 }
 
+unsigned char damage_craft(unsigned char index, unsigned char damage){
+    if(craft_hps[index] > damage){
+        craft_hps[index]  -= damage;
+        return 0;
+    }
+    craft_hps[i] = 0;
+    return 1;
+}
+
 void menu(){
     temp = 0;
     temp2 = 0;
@@ -389,15 +398,12 @@ void tick_bullets(){
         for(temp2=2; temp2<6; temp2++){
             if(craft_types[temp2] != 255){
                 if(craft_bullet_x[i] > craft_x[temp2]-6 && craft_bullet_x[i] < craft_x[temp2]+6 && craft_bullet_y[i] > craft_y[temp2]-6 && craft_bullet_y[i] < craft_y[temp2]+6){
-                    if(craft_hps[temp2] > 0){
-                        craft_hps[temp2]--;
-                        
+                    if(damage_craft(temp2, 1)){
                         craft_bullet_y[i] = 255;
                         continue;
                     }
                 }
             }
-         
         }
         spr=oam_spr(craft_bullet_x[i]-2, craft_bullet_y[i]-2, 0x80, i&1, spr);
         
@@ -410,6 +416,12 @@ void tick_crafts(){
         pad=pad_poll(i);
         
         draw_tank();
+        
+        temp2 = (craft_hps[i]&254);
+        if((craft_hps[i]&1) && !(frame&16)){
+            temp2 += 2;
+        }
+        spr=oam_spr(i?256-20-8:20, 220, 0xA0+temp2, i&1, spr);
         
         temp2 = (pad&(PAD_UP|PAD_DOWN)) && sprite_dirs[i] != DIR_LEFT && sprite_dirs[i] != DIR_RIGHT;
         temp4 = (pad&(PAD_LEFT|PAD_RIGHT)) && sprite_dirs[i] != DIR_UP && sprite_dirs[i] != DIR_DOWN;
@@ -1036,7 +1048,19 @@ void tick_enemies(){
                 craft_types[i] = 255;
                 continue;
             }
-            draw_tank();
+            for(temp2=0; temp2<2; temp2++){
+                if(craft_lives[temp2] != 0){
+                    if(craft_x[i] > craft_x[temp2]-12 && craft_x[i] < craft_x[temp2]+12 && craft_y[i] > craft_y[temp2]-12 && craft_y[i] < craft_y[temp2]+12){
+                        if(damage_craft(temp2, 1)){
+                            craft_hps[temp2] = 8;
+                            craft_lives[temp2]--;
+                        }
+                        craft_types[i] = 255;
+                    }
+                }
+            }
+            if(craft_types[i] != 255)
+                draw_tank();
         }
     }
 
@@ -1067,7 +1091,8 @@ void main(void)
     craft_types[3] = 255;
     craft_types[4] = 255;
     craft_types[5] = 255;
-    
+    craft_hps[0] = 8;
+    craft_hps[1] = 8;
     enemy_spawn_scr = 10;
     
 	while(1){

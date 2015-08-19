@@ -612,6 +612,7 @@ _scroll:
 
 _split_vertical:
 
+	sta <SCROLL_Y1
 @3:
 
 	bit PPU_STATUS
@@ -624,9 +625,13 @@ _split_vertical:
 
 	lda #0
 	sta PPU_SCROLL
-	lda #50
+	lda <SCROLL_Y1
 	sta PPU_SCROLL
 
+	lda #0
+	sta PPU_ADDR
+	lda #0
+	sta PPU_ADDR
 	rts
 
 

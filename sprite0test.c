@@ -39,7 +39,8 @@ void main(void)
     oam_spr(10, 196, 61, 0, 0);
 	while(1){
     
-        scroll(0, 40);
+    
+        scroll(0, 0);
 
 		ppu_wait_nmi();//not ppu_wait_frame, because every 6th frame would not have the split
    
@@ -55,7 +56,6 @@ __asm__ ("	sta $2006");
 __asm__ ("	lda #0");
 __asm__ ("	sta $2006");
 
-        
 		tt++;
         
 	}

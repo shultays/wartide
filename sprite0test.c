@@ -36,15 +36,26 @@ void main(void)
 {
 	init();
     
-    oam_spr(10, 111-64, 61, 0, 0);
+    oam_spr(10, 196, 61, 0, 0);
 	while(1){
     
-        scroll(tt&1, 0);
+        scroll(0, 40);
 
 		ppu_wait_nmi();//not ppu_wait_frame, because every 6th frame would not have the split
-        split_vertical(tt);
+   
 
-        scroll(tt, 0);
+__asm__ ("@3: ");
+__asm__ ("	bit $2002");
+__asm__ ("	bvs @3");
+__asm__ ("@4:");
+__asm__ ("	bit $2002");
+__asm__ ("	bvc @4");
+__asm__ ("	lda #4");
+__asm__ ("	sta $2006");
+__asm__ ("	lda #0");
+__asm__ ("	sta $2006");
+
+        
 		tt++;
         
 	}

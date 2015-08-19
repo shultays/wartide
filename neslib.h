@@ -158,12 +158,6 @@ void __fastcall__ scroll(unsigned int x,unsigned int y);
 
 void __fastcall__ split(unsigned int x,unsigned int y);
 
-//set scroll after screen split invoked by the sprite 0 hit
-//warning: all CPU time between the function call and the actual split point will be wasted!
-//warning: the program loop has to fit into the frame time, ppu_wait_frame should not be used
-//         otherwise empty frames without split will be inserted, resulting in jumpy screen
-//warning: only X scroll could be changed in this version
-
 void __fastcall__ split_vertical(unsigned int y);
 
 

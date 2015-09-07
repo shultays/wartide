@@ -56,11 +56,12 @@ const unsigned char palette[]={
 
 #define MAX_Y (253-16)
 #define CRAFT_BULLET_COUNT 16
+#define ENEMY_BULLET_COUNT 24
 
-static unsigned char craft_bullet_x[CRAFT_BULLET_COUNT];
-static unsigned char craft_bullet_y[CRAFT_BULLET_COUNT] = {255};
-static unsigned char craft_bullet_flag[CRAFT_BULLET_COUNT]; // dir
-static unsigned char craft_bullet_timers[2] = {0, 0};
+static unsigned char craft_bullet_x[ENEMY_BULLET_COUNT];
+static unsigned char craft_bullet_y[ENEMY_BULLET_COUNT] = {255};
+static unsigned char craft_bullet_flag[ENEMY_BULLET_COUNT]; // dir
+static unsigned char craft_bullet_timers[6] = {0, 0};
 
 static int scr = 0;
 static unsigned row_index = 0;
@@ -132,7 +133,7 @@ unsigned char damage_craft(unsigned char index, unsigned char damage){
         craft_hps[index]  -= damage;
         return 0;
     }
-    craft_hps[i] = 0;
+    craft_hps[index] = 0;
     return 1;
 }
 
@@ -245,7 +246,7 @@ void init(){
 
 }
 void tick_bullets(){
-    for(i=0; i<CRAFT_BULLET_COUNT; ++i){
+    for(i=0; i<ENEMY_BULLET_COUNT; ++i){
         if(craft_bullet_y[i] == 255) continue;
         
         temp = craft_bullet_flag[i] & 0xF;
@@ -286,133 +287,161 @@ void tick_bullets(){
         }
         temp2 = (craft_bullet_y[i] + (scr&15))>>4;
         temp3 = craft_bullet_x[i]>>4;
-        
-        if(isCellBulletFree(temp3, temp2) == FALSE)
+        temp = isCellBulletFree(temp3, temp2) == FALSE;
+        if(i<CRAFT_BULLET_COUNT)
         {
-            if(wall_hit_hp[i&1] == 0 ||(wall_hit_x[i&1]&15) != temp3 || (wall_hit_y[i&1]&15) != temp2)
+            if(temp)
             {
-                wall_hit_x[i&1] = (wall_hit_x[i&1]&0xF0) | temp3;
-                wall_hit_y[i&1] = (wall_hit_y[i&1]&0xF0) | temp2;
-                wall_hit_hp[i&1] = 10;
-            }
-            wall_hit_hp[i&1]--;
-            if(wall_hit_hp[i&1] == 0 && temp3 != 0 && temp3 != 15)
-            {
-            
-                temp6 = 1;
-                bullet_blocked[temp2] ^= (1<<temp3);
-                blocked[temp2] ^= (1<<temp3);
-                temp = row_index;
-                if(temp&1) temp--;
-                temp +=(temp2<<1);
-                if(temp>=60) temp-=60;
-                if(temp<30){
-                    adr = NAMETABLE_A+(temp<<5);
-                }else{
-                    temp-=30;
-                    adr = NAMETABLE_C+(temp<<5);
+                if(wall_hit_hp[i&1] == 0 ||(wall_hit_x[i&1]&15) != temp3 || (wall_hit_y[i&1]&15) != temp2)
+                {
+                    wall_hit_x[i&1] = (wall_hit_x[i&1]&0xF0) | temp3;
+                    wall_hit_y[i&1] = (wall_hit_y[i&1]&0xF0) | temp2;
+                    wall_hit_hp[i&1] = 10;
                 }
-                adr += temp3<<1;
-                update_list[0]=MSB(adr)|NT_UPD_HORZ;
-                update_list[1]=LSB(adr);
+                wall_hit_hp[i&1]--;
+                if(wall_hit_hp[i&1] == 0 && temp3 != 0 && temp3 != 15)
+                {
                 
-                update_list[2] = 2;
-                update_list[5]=NT_UPD_EOF;
-                
-                adr += 32;
-                update_list[5]=MSB(adr)|NT_UPD_HORZ;
-                update_list[6]=LSB(adr);
-                update_list[7] = 2;
-                
-                
-                update_list[10]=NT_UPD_EOF;
-                
-                temp5 = 0;
-                if(temp2)
-                    temp5 |= (!isCellBulletFree(temp3, temp2-1) || (((wall_hit_x[i&1])>>4) == temp3 && ((wall_hit_y[i&1])>>4) == temp2-1));
-                if(temp3)
-                    temp5 |= (!isCellBulletFree(temp3-1, temp2) || (((wall_hit_x[i&1])>>4) == temp3-1 && ((wall_hit_y[i&1])>>4) == temp2))<<1;
+                    temp6 = 1;
+                    bullet_blocked[temp2] ^= (1<<temp3);
+                    blocked[temp2] ^= (1<<temp3);
+                    temp = row_index;
+                    if(temp&1) temp--;
+                    temp +=(temp2<<1);
+                    if(temp>=60) temp-=60;
+                    if(temp<30){
+                        adr = NAMETABLE_A+(temp<<5);
+                    }else{
+                        temp-=30;
+                        adr = NAMETABLE_C+(temp<<5);
+                    }
+                    adr += temp3<<1;
+                    update_list[0]=MSB(adr)|NT_UPD_HORZ;
+                    update_list[1]=LSB(adr);
                     
-                if(temp2<14)
-                    temp5 |= (!isCellBulletFree(temp3, temp2+1) || (((wall_hit_x[i&1])>>4) == temp3 && ((wall_hit_y[i&1])>>4) == temp2+1))<<2;
-                if(temp3<15)
-                    temp5 |= (!isCellBulletFree(temp3+1, temp2) || (((wall_hit_x[i&1])>>4) == temp3+1 && ((wall_hit_y[i&1])>>4) == temp2))<<3;
+                    update_list[2] = 2;
+                    update_list[5]=NT_UPD_EOF;
                     
-                // 1 up
-                // 2 left
-                // 4 bottom
-                // 8 right
-                
-                // update_list[3] = 0xB0;
-                // update_list[4] = 0xB1;
-                // update_list[8] = 0xC0;
-                // update_list[9] = 0xC1;
-                    
-                
-                if((temp5 & 3) == 3)
-                    update_list[3] = 0xB0;
-                else if(temp5 & 1)
-                    update_list[3] = 0xB4;
-                else if(temp5 & 2)
-                    update_list[3] = 0xB2;
-                else 
-                    update_list[3] = 0;
-                    
-                if((temp5 & 9) == 9)
-                    update_list[4] = 0xB1;
-                else if(temp5 & 1)
-                    update_list[4] = 0xB5;
-                else if(temp5 & 8)
-                    update_list[4] = 0xB3;
-                else 
-                    update_list[4] = 0;
-                
-                
-                if((temp5 & 6) == 6)
-                    update_list[8] = 0xC0;
-                else if(temp5 & 4)
-                    update_list[8] = 0xC4;
-                else if(temp5 & 2)
-                    update_list[8] = 0xC2;
-                else 
-                    update_list[8] = 0;
-                    
-                if((temp5 & 12) == 12)
-                    update_list[9] = 0xC1;
-                else if(temp5 & 4)
-                    update_list[9] = 0xC5;
-                else if(temp5 & 8)
-                    update_list[9] = 0xC3;
-                else 
-                    update_list[9] = 0;
+                    adr += 32;
+                    update_list[5]=MSB(adr)|NT_UPD_HORZ;
+                    update_list[6]=LSB(adr);
+                    update_list[7] = 2;
                     
                     
-                wall_hit_x[i&1] <<= 4;
-                wall_hit_y[i&1] <<= 4;
+                    update_list[10]=NT_UPD_EOF;
+                    
+                    temp5 = 0;
+                    if(temp2)
+                        temp5 |= (!isCellBulletFree(temp3, temp2-1) || (((wall_hit_x[i&1])>>4) == temp3 && ((wall_hit_y[i&1])>>4) == temp2-1));
+                    if(temp3)
+                        temp5 |= (!isCellBulletFree(temp3-1, temp2) || (((wall_hit_x[i&1])>>4) == temp3-1 && ((wall_hit_y[i&1])>>4) == temp2))<<1;
+                        
+                    if(temp2<14)
+                        temp5 |= (!isCellBulletFree(temp3, temp2+1) || (((wall_hit_x[i&1])>>4) == temp3 && ((wall_hit_y[i&1])>>4) == temp2+1))<<2;
+                    if(temp3<15)
+                        temp5 |= (!isCellBulletFree(temp3+1, temp2) || (((wall_hit_x[i&1])>>4) == temp3+1 && ((wall_hit_y[i&1])>>4) == temp2))<<3;
+                        
+                    // 1 up
+                    // 2 left
+                    // 4 bottom
+                    // 8 right
+                    
+                    // update_list[3] = 0xB0;
+                    // update_list[4] = 0xB1;
+                    // update_list[8] = 0xC0;
+                    // update_list[9] = 0xC1;
+                        
+                    
+                    if((temp5 & 3) == 3)
+                        update_list[3] = 0xB0;
+                    else if(temp5 & 1)
+                        update_list[3] = 0xB4;
+                    else if(temp5 & 2)
+                        update_list[3] = 0xB2;
+                    else 
+                        update_list[3] = 0;
+                        
+                    if((temp5 & 9) == 9)
+                        update_list[4] = 0xB1;
+                    else if(temp5 & 1)
+                        update_list[4] = 0xB5;
+                    else if(temp5 & 8)
+                        update_list[4] = 0xB3;
+                    else 
+                        update_list[4] = 0;
+                    
+                    
+                    if((temp5 & 6) == 6)
+                        update_list[8] = 0xC0;
+                    else if(temp5 & 4)
+                        update_list[8] = 0xC4;
+                    else if(temp5 & 2)
+                        update_list[8] = 0xC2;
+                    else 
+                        update_list[8] = 0;
+                        
+                    if((temp5 & 12) == 12)
+                        update_list[9] = 0xC1;
+                    else if(temp5 & 4)
+                        update_list[9] = 0xC5;
+                    else if(temp5 & 8)
+                        update_list[9] = 0xC3;
+                    else 
+                        update_list[9] = 0;
+                        
+                        
+                    wall_hit_x[i&1] <<= 4;
+                    wall_hit_y[i&1] <<= 4;
+                }
+                
+                craft_bullet_y[i] = 255;
+                continue;
             }
             
-            craft_bullet_y[i] = 255;
-            continue;
-        }
+            for(temp2=2; temp2<6; temp2++){
+                if(craft_types[temp2] != 255){
+                    if(craft_bullet_x[i] > craft_x[temp2]-6 && craft_bullet_x[i] < craft_x[temp2]+6 && craft_bullet_y[i] > craft_y[temp2]-6 && craft_bullet_y[i] < craft_y[temp2]+6){
+                        damage_craft(temp2, 1);
+                        craft_bullet_y[i] = 255;
+                        break;
+                    }
+                }
+            }
         
-        for(temp2=2; temp2<6; temp2++){
-            if(craft_types[temp2] != 255){
-                if(craft_bullet_x[i] > craft_x[temp2]-6 && craft_bullet_x[i] < craft_x[temp2]+6 && craft_bullet_y[i] > craft_y[temp2]-6 && craft_bullet_y[i] < craft_y[temp2]+6){
-                    if(damage_craft(temp2, 1)){
+        }
+        else
+        {
+            if(temp)
+            {
+                craft_bullet_y[i] = 255;
+                continue;
+            }
+            for(temp2=0; temp2<2; temp2++){
+                if(craft_lives[temp2] > 0){
+                    if(craft_bullet_x[i] > craft_x[temp2]-6 && craft_bullet_x[i] < craft_x[temp2]+6 && craft_bullet_y[i] > craft_y[temp2]-6 && craft_bullet_y[i] < craft_y[temp2]+6){
+                        damage_craft(temp2, 1);
                         craft_bullet_y[i] = 255;
                         continue;
                     }
                 }
             }
         }
-        spr=oam_spr(craft_bullet_x[i]-2, craft_bullet_y[i]-2, 0x80, i&1, spr);
+    
+        if(craft_bullet_y[i] != 255)
+            spr=oam_spr(craft_bullet_x[i]-2, craft_bullet_y[i]-2, 0x80, i<CRAFT_BULLET_COUNT?i&1:2, spr);
         
     }
 }
 void tick_crafts(){
     for(i=0;i<2;++i){
+
         if(!craft_lives[i]) continue;
       
+        if(craft_hps[i] == 0)
+        {
+            craft_hps[i] = 8;
+            craft_lives[i]--;
+        }
         pad=pad_poll(i);
         
         draw_tank();
@@ -556,7 +585,7 @@ void scroll_screen(){
             if(craft_y[i] >= MAX_Y+1) craft_y[i] = MAX_Y+1;
         }
         
-        for(i=0; i<CRAFT_BULLET_COUNT; ++i){
+        for(i=0; i<ENEMY_BULLET_COUNT; ++i){
             if(craft_bullet_y[i] == 255) continue;
             
             if(craft_bullet_y[i] > 255 - temp2){
@@ -973,10 +1002,11 @@ void tick_enemies(){
                 craft_types[i] = 1;
                 craft_flags[i] = 15;
                 craft_hps[i] = 2;
+                craft_bullet_timers[i] = rand8()&127;
             }
         }
-        
-        if(craft_types[i] != 255){
+        else
+        {
             temp = (sprite_dirs[i]>0)+(sprite_look_dirs[i]>0);
             temp2 = sprite_dirs[i];
             temp3 = craft_x[i];
@@ -1044,6 +1074,23 @@ void tick_enemies(){
                 }
                 
             }
+            if(craft_bullet_timers[i])
+            {
+                craft_bullet_timers[i]--;
+            }
+            
+            if(craft_bullet_timers[i] == 0)
+            {
+                for(temp=CRAFT_BULLET_COUNT; temp < ENEMY_BULLET_COUNT; temp++){
+                    if(craft_bullet_y[temp] != 255) continue;
+                    craft_bullet_x[temp] = craft_x[i];
+                    craft_bullet_y[temp] = craft_y[i];
+                    craft_bullet_flag[temp] = sprite_dirs[i];
+                    craft_bullet_timers[i] = 64 + (rand8()&127);
+                    break;
+                }   
+            }
+            
             if(craft_y[i] >= MAX_Y-1 || craft_hps[i] == 0){
                 craft_types[i] = 255;
                 continue;
@@ -1051,11 +1098,9 @@ void tick_enemies(){
             for(temp2=0; temp2<2; temp2++){
                 if(craft_lives[temp2] != 0){
                     if(craft_x[i] > craft_x[temp2]-12 && craft_x[i] < craft_x[temp2]+12 && craft_y[i] > craft_y[temp2]-12 && craft_y[i] < craft_y[temp2]+12){
-                        if(damage_craft(temp2, 1)){
-                            craft_hps[temp2] = 8;
-                            craft_lives[temp2]--;
-                        }
+                        damage_craft(temp2, 2);
                         craft_types[i] = 255;
+                        break;
                     }
                 }
             }

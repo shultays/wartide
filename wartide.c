@@ -13,6 +13,79 @@
 #define DIR_DOWN_LEFT (DIR_DOWN | DIR_LEFT)
 #define DIR_UP_LEFT (DIR_UP | DIR_LEFT)
 
+#define MAX_Y (253-16)
+#define CRAFT_BULLET_COUNT 16
+#define ENEMY_BULLET_COUNT 24
+
+
+#define GRASS 0
+#define WALL 1
+#define WALL_GREEN 3
+#define WALL_BIG 5
+#define WATER 2
+
+const unsigned char palette[]={ 
+0x29,0x27,0x17,0x07, // mountains
+0x29,0x27,0x19,0x18, // grass
+0x29,0xF,0x2D,0x3D, // menu
+0x29,0x21,0x1C,0xF, // water
+
+0x29, 0x37, 0x26, 0x17,
+0x29, 0x31, 0x22, 0x11,
+0x29, 0x33, 0x23, 0x13,
+0x29, 0xF, 0xF, 0xF,
+}; 
+
+static const unsigned char bg_colors[]={
+	1,
+	0,
+	3,
+	1,
+	0,
+    0,
+};
+
+static const char water_tiles[] = {
+0xBD,
+0x8C,
+0xAC,
+0xDC,
+
+0xBF,
+0x8C,
+0x9C,
+0xDF,
+
+0xBC,
+0x7C,
+0xAC,
+0xDD,
+
+0xBE,
+0x7C,
+0x9C,
+0xDE,
+};
+
+
+static const char wall_tiles[] = {0x80,
+0x84,
+0x90,
+0x99,
+0x82,
+0x84,
+0xA0,
+0x98,
+0x70,
+0x74,
+0x90,
+0x9B,
+0x72,
+0x74,
+0xA0,
+0x9A};
+
+
 static unsigned char i;
 static unsigned char pad, spr;
 static unsigned char frame;
@@ -42,21 +115,9 @@ static unsigned char temp4;
 static unsigned char temp5;
 static unsigned char temp6;
 
-const unsigned char palette[]={ 
-0x29,0x27,0x17,0x07, // mountains
-0x29,0x27,0x19,0x18, // grass
-0x29,0xF,0x2D,0x3D, // menu
-0x29,0x21,0x1C,0xF, // water
+static unsigned char wall_count = 0;
+static unsigned char has_big_wall = 0;
 
-0x29, 0x37, 0x26, 0x17,
-0x29, 0x31, 0x22, 0x11,
-0x29, 0x33, 0x23, 0x13,
-0x29, 0xF, 0xF, 0xF,
-}; 
-
-#define MAX_Y (253-16)
-#define CRAFT_BULLET_COUNT 16
-#define ENEMY_BULLET_COUNT 24
 
 static unsigned char craft_bullet_x[ENEMY_BULLET_COUNT];
 static unsigned char craft_bullet_y[ENEMY_BULLET_COUNT] = {255};
@@ -70,12 +131,6 @@ static unsigned int adr = 0;
 static unsigned char update_list[3+32+3+8+1];//3 bytes address and length for 32 tiles, 3 bytes address and length for 8 attributes, end marker
 
 
-#define GRASS 0
-#define WALL 1
-#define WALL_GREEN 3
-#define WALL_BIG 5
-#define WATER 2
-
 static unsigned char next_line[18] = {GRASS};
 static unsigned char next_wall;
 static unsigned char current_wall;
@@ -83,15 +138,6 @@ static unsigned char prev_wall;
 static unsigned char current_line[18] = {GRASS};
 static unsigned char prev_line[18] = {GRASS};
 
-
-static const unsigned char bg_colors[]={
-	1,
-	0,
-	3,
-	1,
-	0,
-    0,
-};
 
 unsigned char grand8(){
     return craft_x[0] ^ craft_x[1] ^ frame ^ rand8();
@@ -117,7 +163,6 @@ unsigned char isFree(unsigned char x, unsigned char y, unsigned char dir){
     
     if(dir == DIR_UP) y-=3;
     else if(dir == DIR_DOWN) y+=3;
-    
     if(dir&3)
     {
         return isFreeIn(x, y+2) && isFreeIn(x, y-2)/* && isFreeIn(x, y)*/;
@@ -296,7 +341,7 @@ void tick_bullets(){
                 {
                     wall_hit_x[i&1] = (wall_hit_x[i&1]&0xF0) | temp3;
                     wall_hit_y[i&1] = (wall_hit_y[i&1]&0xF0) | temp2;
-                    wall_hit_hp[i&1] = 10;
+                    wall_hit_hp[i&1] = 5;
                 }
                 wall_hit_hp[i&1]--;
                 if(wall_hit_hp[i&1] == 0 && temp3 != 0 && temp3 != 15)
@@ -504,7 +549,7 @@ void tick_crafts(){
         }
         if(temp5 == 1 || (frame&3) != 1)
         {
-            if((temp3&DIR_UP) && isFree(craft_x[i], craft_y[i], DIR_UP)){
+            if((temp3&DIR_UP) && (((craft_y[i]-3+(scr&15))>>4) == 15 || isFree(craft_x[i], craft_y[i], DIR_UP))){
                 craft_y[i]--;
             }
             if((temp3&DIR_DOWN) && isFree(craft_x[i], craft_y[i], DIR_DOWN)){
@@ -530,46 +575,6 @@ void tick_crafts(){
         }
     }
 }
-
-static const char water_tiles[] = {
-0xBD,
-0x8C,
-0xAC,
-0xDC,
-
-0xBF,
-0x8C,
-0x9C,
-0xDF,
-
-0xBC,
-0x7C,
-0xAC,
-0xDD,
-
-0xBE,
-0x7C,
-0x9C,
-0xDE,
-};
-
-
-static const char wall_tiles[] = {0x80,
-0x84,
-0x90,
-0x99,
-0x82,
-0x84,
-0xA0,
-0x98,
-0x70,
-0x74,
-0x90,
-0x9B,
-0x72,
-0x74,
-0xA0,
-0x9A};
 
 
 void scroll_screen(){
@@ -624,25 +629,64 @@ void scroll_screen(){
             }
  
             if(temp&1){
-                if(wall_hit_hp[0]){
-                    wall_hit_y[0] += 16;
+                if((wall_hit_y[0]&0xF) != 0xF){
+                    wall_hit_y[0]++;
                 }
-                if(wall_hit_hp[1]){
-                    wall_hit_y[1] += 16;
+                if((wall_hit_y[1]&0xF) != 0xF){
+                    wall_hit_y[1]++;
+                }
+                
+                if((wall_hit_y[0]&0xF0) != 0xF0){
+                    wall_hit_y[0]+=0x10;
+                }
+                if((wall_hit_y[1]&0xF0) != 0xF0){
+                    wall_hit_y[1]+=0x10;
                 }
             
                 for(i=2; i<16; i++){
                     prev_line[i] = current_line[i];
                     current_line[i] = next_line[i];
+                    next_line[i] = GRASS;
                 }
                 prev_wall = current_wall;
                 current_wall = next_wall;
                 next_wall = 0;
-                for(i=2; i<16; i++){
-                    temp4 = grand8() & 15;
-                    if(temp4 < 13) next_line[i] = GRASS;
-                    else next_line[i] = WALL;
+                
+                wall_count -= (wall_count>>3);
+                if(wall_count>0) wall_count--;
+                if(has_big_wall) has_big_wall--;
+                
+                if(wall_count < 2 && (grand8()<150)){
+                    wall_count = 0;
+                    temp3 = grand8();
+                    if(has_big_wall) temp2 = WALL;
+                    else if(temp3 < 80) temp2 = WATER;
+                    else if(temp3 < 150){
+                        temp2 = WALL_BIG;
+                        has_big_wall = 2;
+                    }
+                    else temp2 = WALL;
+                    
+                    temp3 = 4+(grand8()&1)+(grand8()&3)+(grand8()&5);
+                    temp4 = temp3;
+                    
+                    if(grand8()&1) temp3--;
+                    if(grand8()&1) temp4++;
+                    
+                    if(temp2 != WALL_BIG){
+                        if(grand8()&1) temp3--;
+                        if(grand8()&1) temp4++;
+                    }else{
+                        if(temp3 == temp4) (grand8()&1)?temp4++:temp3--;
+                    }
+                    
+                    for(i=temp3; i<=temp4; i++){
+                        next_line[i] = temp2;
+                        wall_count++;
+                        next_wall++;
+                    }
                 }
+                
                 for(i=2; i<16; i++){
                     if(next_line[i] == GRASS){
                         if(current_line[i] == WALL_BIG){
@@ -653,145 +697,63 @@ void scroll_screen(){
                                     ((current_line[i]&WALL)<<1)+
                                     ((current_line[i-1]&WALL))+
                                     ((current_line[i+1]&WALL));
-                            if(i==2 || i == 15) temp4 -= 2; 
-                            if(temp4 >= 5){
+                                    
+                            temp3 = (wall_count>>2);
+                            
+                            if(i==2 || i == 15){
+                                temp3+=2;
+                            }
+                            if(temp4 > temp3){
+                                temp4 -= temp3;
+                            } else {
+                                temp4 = 0;
+                            }
+                            
+                            if(temp4 >= 4){
                                 next_line[i] = WALL;
-                            }else if(temp4 >= 3){
-                                if(rand8()&1){
+                                wall_count++;
+                            }else if(temp4 >= 2){
+                                if(grand8()&1){
                                     next_line[i] = WALL;
+                                    wall_count++;
                                 }
                             }
                             
-                            
-                            temp4 = ((next_line[i+1]==WATER)<<1)+
+                             temp4 = ((next_line[i+1]==WATER)<<1)+
                                     ((next_line[i-1]==WATER)<<1)+
                                     ((current_line[i]==WATER)<<1)+
                                     ((current_line[i-1]==WATER))+
                                     ((current_line[i+1]==WATER));
+                                    
+                                    
+                            temp3 = (wall_count>>2);
+                            
+                            if(temp4 > temp3){
+                                temp4 -= temp3;
+                            } else {
+                                temp4 = 0;
+                            }
                             if(temp4 >= 5){
                                 next_line[i] = WATER;
+                                wall_count++;
                             }else if(temp4 >= 3){
-                                if(rand8()&3){
+                                if(grand8()&3){
                                     next_line[i] = WATER;
+                                    wall_count++;
                                 }
                             }
                         }
-                    } else if(next_line[i] == WALL){
-                        temp4 = ((next_line[i+1]&WALL))+
-                                ((next_line[i-1]&WALL))+
-                                ((current_line[i]&WALL));
-                        
-                        if(temp4 == 0){
-                            if((rand8()&3) != 0){
-                                next_line[i] = GRASS;
-                            }
-                        } 
                     }
-                
+                    
                     if(next_line[i] & (WALL|WATER)){
                         next_wall++;
                     }
                 }
-                temp4 = 0;
-                if(next_wall > 4) temp4 = next_wall - 4;
-                if(next_wall + current_wall > 8){
-                    temp4 += next_wall/2;
-                }
-                if(temp4 > next_wall) temp4 = next_wall;
-                next_wall -= temp4;
-                while(temp4--){
-                    temp3 = 2+rand8()%14;
-                    while(1){
-                        if(next_line[temp3] & (WALL|WATER)){
-                            if(next_line[temp3] != WALL_BIG && current_line[temp3] != WALL_BIG){
-                                next_line[temp3] = GRASS; 
-                            }
-                            break;
-                        }
-                            
-                        temp3++;
-                        if(temp3 == 16) temp3 = 2;
-                    }
-                }
-                
-                if(next_wall + current_wall <= 2){
-                    if(rand8()&1)
-                    {
-                        temp3 = 3 + (rand8()&7);
-                        temp4 = (rand8()&1)+(rand8()&1)+2;
-                        next_wall += temp4;
-                        for(i=0; i<temp4; i++){
-                            next_line[temp3+i] = WALL_BIG;
-                        }
-                        
-                        for(i=temp3+temp4; i<16; i++){
-                            if(next_line[i] == WALL &&  i!= 15 && (rand8()&3) == 0){
-                                next_line[i] = WALL_BIG;
-                            }else{
-                                next_line[i] = GRASS;
-                                break;
-                            }
-                        }
-                        for(i=temp3-1; i>=2; i--){
-                            if(next_line[i] == WALL &&  i!= 2 && (rand8()&3) == 0){
-                                next_line[i] = WALL_BIG;
-                            }else{
-                                next_line[i] = GRASS;
-                                break;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        temp3 = 3 + (rand8()&7);
-                        temp4 = (rand8()&1)+(rand8()&1)+2;
-                        next_wall += temp4;
-                        for(i=0; i<temp4; i++){
-                            next_line[temp3+i] = WATER;
-                        }
-
-                        for(i=temp3+temp4; i<16; i++){
-                            if(next_line[i] == WALL &&  i!= 15 && (rand8()&3) != 0){
-                                next_line[i] = WATER;
-                            }else{
-                                next_line[i] = GRASS;
-                                break;
-                            }
-                        }
-                        for(i=temp3-1; i>=2; i--){
-                            if(next_line[i] == WALL &&  i!= 2 && (rand8()&3) != 0){
-                                next_line[i] = WATER;
-                            }else{
-                                next_line[i] = GRASS;
-                                break;
-                            }
-                        }
-                    }
-                }
                 
                 for(i=2; i<16; i++){
-                    if(next_line[i] == WALL && current_line[i] == WATER){
-                        next_line[i] = WATER;
-                    }
-                }
-                
-                for(i=3; i<15; i++){
-                    if(next_line[i] == WATER){
-                        for(temp3=i+1; temp3<15; temp++){
-                            if(next_line[i] == WALL && (rand8()&3) != 0){
-                                next_line[i] = WATER;
-                            }else{
-                                break;
-                            }
-                        }
-                        
-                        for(temp3=i-1; temp3>2; temp--){
-                            if(next_line[i] == WALL && (rand8()&3) != 0){
-                                next_line[i] = WATER;
-                            }else{
-                                break;
-                            }
-                        }
+                    if(next_line[i] == WALL && (next_line[i-1] == WALL_BIG || next_line[i+1] == WALL_BIG)){
+                        if(i==2 || i == 15) next_line[i] = GRASS;
+                        else next_line[i] = WALL_BIG;
                     }
                 }
                 
@@ -1144,6 +1106,10 @@ void main(void)
 		ppu_wait_frame();
         oam_clear();
 		spr=0;
+        //spr=oam_spr(20, wall_count, 0x79, 1, spr);
+        //spr=oam_spr(40, has_big_wall, 0x79, 1, spr);
+        //spr=oam_spr(60, wall_hit_y[0]&15, 0x79, 1, spr);
+            
         tick_crafts();
         tick_enemies();
         tick_bullets();

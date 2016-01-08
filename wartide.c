@@ -957,9 +957,9 @@ void scroll_screen(){
                             if(temp3 == 0){
                                 temp5 = 1;
                             }else if(temp3==1){
-                                temp5 = rand8() < 90;
+                                temp5 = rand8() < 120;
                             }else{
-                                temp5 = rand8() < 40;
+                                temp5 = rand8() < 60;
                             }
                         }
                         if(temp5){

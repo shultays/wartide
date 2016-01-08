@@ -14,8 +14,8 @@
 #define DIR_UP_LEFT (DIR_UP | DIR_LEFT)
 
 #define MAX_Y (253-16)
-#define CRAFT_BULLET_COUNT 16
-#define ENEMY_BULLET_COUNT 24
+#define CRAFT_BULLET_COUNT 8
+#define ENEMY_BULLET_COUNT 12
 
 
 #define GRASS 0
@@ -23,10 +23,11 @@
 #define WALL_GREEN 3
 #define WALL_BIG 5
 #define WATER 2
+#define FOREST 4
 
 const unsigned char palette[]={ 
 0x29,0x27,0x17,0x07, // mountains
-0x29,0x27,0x19,0x18, // grass
+0x29,0x27,0x19,0x18, // grass, trees
 0x29,0xF,0x2D,0x3D, // menu
 0x29,0x21,0x1C,0xF, // water
 
@@ -41,7 +42,7 @@ static const unsigned char bg_colors[]={
 	0,
 	3,
 	1,
-	0,
+	1,
     0,
 };
 
@@ -372,7 +373,6 @@ void tick_bullets(){
                     update_list[6]=LSB(adr);
                     update_list[7] = 2;
                     
-                    
                     update_list[10]=NT_UPD_EOF;
                     
                     temp5 = 0;
@@ -566,7 +566,7 @@ void tick_crafts(){
                     craft_bullet_x[temp] = craft_x[i];
                     craft_bullet_y[temp] = craft_y[i];
                     craft_bullet_flag[temp] = temp3 | sprite_dirs[i];
-                    craft_bullet_timers[i] = 8;
+                    craft_bullet_timers[i] = 16;
                     break;
                 }                
             }
@@ -646,7 +646,14 @@ void scroll_screen(){
                 for(i=2; i<16; i++){
                     prev_line[i] = current_line[i];
                     current_line[i] = next_line[i];
-                    next_line[i] = GRASS;
+                    if(i==2 || i==15){
+                        if(rand8() < 30){
+                            if(next_line[i] == WALL) next_line[i] = GRASS;
+                            else next_line[i] = WALL;
+                        }
+                    } else {
+                        next_line[i] = GRASS;
+                    }
                 }
                 prev_wall = current_wall;
                 current_wall = next_wall;
@@ -660,12 +667,14 @@ void scroll_screen(){
                     wall_count = 0;
                     temp3 = grand8();
                     if(has_big_wall) temp2 = WALL;
-                    else if(temp3 < 80) temp2 = WATER;
-                    else if(temp3 < 150){
+                    else if(temp3 < 60) temp2 = WATER;
+                    else if(temp3 < 120) temp2 = FOREST;
+                    else if(temp3 < 180){
                         temp2 = WALL_BIG;
                         has_big_wall = 2;
+                    } else {
+                        temp2 = WALL;
                     }
-                    else temp2 = WALL;
                     
                     temp3 = 4+(grand8()&1)+(grand8()&3)+(grand8()&5);
                     temp4 = temp3;
@@ -692,17 +701,14 @@ void scroll_screen(){
                         if(current_line[i] == WALL_BIG){
                             next_line[i] = WALL;
                         }else{
-                            temp4 = ((next_line[i+1]&WALL)<<1)+
-                                    ((next_line[i-1]&WALL)<<1)+
+                            temp4 = ((next_line[i+1]&WALL&(i<13))<<1)+
+                                    ((next_line[i-1]&WALL&(i>3))<<1)+
                                     ((current_line[i]&WALL)<<1)+
-                                    ((current_line[i-1]&WALL))+
-                                    ((current_line[i+1]&WALL));
+                                    ((current_line[i-1]&WALL&(i>3)))+
+                                    ((current_line[i+1]&WALL&(i<13)));
                                     
                             temp3 = (wall_count>>2);
                             
-                            if(i==2 || i == 15){
-                                temp3+=2;
-                            }
                             if(temp4 > temp3){
                                 temp4 -= temp3;
                             } else {
@@ -719,7 +725,7 @@ void scroll_screen(){
                                 }
                             }
                             
-                             temp4 = ((next_line[i+1]==WATER)<<1)+
+                            temp4 = ((next_line[i+1]==WATER)<<1)+
                                     ((next_line[i-1]==WATER)<<1)+
                                     ((current_line[i]==WATER)<<1)+
                                     ((current_line[i-1]==WATER))+
@@ -742,10 +748,36 @@ void scroll_screen(){
                                     wall_count++;
                                 }
                             }
+                            
+                            
+                            temp4 = ((next_line[i+1]==FOREST)<<1)+
+                                    ((next_line[i-1]==FOREST)<<1)+
+                                    ((current_line[i]==FOREST)<<1)+
+                                    ((current_line[i-1]==FOREST))+
+                                    ((current_line[i+1]==FOREST));
+                                    
+                                    
+                            temp3 = (wall_count>>2);
+                            
+                            if(temp4 > temp3){
+                                temp4 -= temp3;
+                            } else {
+                                temp4 = 0;
+                            }
+                            if(temp4 >= 5){
+                                next_line[i] = FOREST;
+                                wall_count++;
+                            }else if(temp4 >= 3){
+                                if(grand8()&3){
+                                    next_line[i] = FOREST;
+                                    wall_count++;
+                                }
+                            }
+                            
                         }
                     }
                     
-                    if(next_line[i] & (WALL|WATER)){
+                    if(next_line[i] & (WALL|WATER|FOREST)){
                         next_wall++;
                     }
                 }
@@ -759,23 +791,24 @@ void scroll_screen(){
                 
                 for(i=2; i<16; i++){
                     if(current_line[i] == WALL && 
-                    (
-                    ((current_line[i-1]==WALL_GREEN) && (current_line[i+1]==WALL_GREEN) && 
-                    (next_line[i]==WALL_GREEN) && (prev_line[i]==WALL_GREEN) 
-                     && (next_line[i-1]==WALL_GREEN) && (next_line[i+1]==WALL_GREEN) 
-                     && (prev_line[i-1]==WALL_GREEN) && (prev_line[i+1]==WALL_GREEN))
-                     || 
-                     
-                    ((current_line[i-1]==WALL) && (current_line[i+1]==WALL) && 
-                    (next_line[i]==WALL) && (prev_line[i]==WALL) 
-                     && (next_line[i-1]==WALL) && (next_line[i+1]==WALL) 
-                     && (prev_line[i-1]==WALL) && (prev_line[i+1]==WALL))
-                     
-                     )
+                    ((current_line[i-1]&WALL) && (current_line[i+1]&WALL) && 
+                    (next_line[i]&WALL) && (prev_line[i]&WALL) 
+                     && (next_line[i-1]&WALL) && (next_line[i+1]&WALL) 
+                     && (prev_line[i-1]&WALL) && (prev_line[i+1]&WALL))
+                  
                     ){
                         current_line[i] = WALL_GREEN;
                     }
                 }
+                
+                if((current_line[2]&WALL) && (prev_line[2]&WALL) && (next_line[2]&WALL)){
+                    current_line[1] = WALL_GREEN;
+                }
+                
+                if((current_line[15]&WALL) && (prev_line[15]&WALL) && (next_line[15]&WALL)){
+                    current_line[16] = WALL_GREEN;
+                }
+                
                 
                 for(i=14; i>0; i--)
                 {
@@ -806,10 +839,10 @@ void scroll_screen(){
             
             for(i=0; i<32; i++){
                 temp4 = 1+(i>>1);
+                temp2 = ((((temp&1)==0)<<1)+(i&1));
                 switch(current_line[temp4]){
                     case WALL:
                     case WATER:
-                        temp2 = ((((temp&1)==0)<<1)+(i&1));
                         temp5 = current_line[temp4];
                         
                         if(temp2&1){
@@ -861,7 +894,7 @@ void scroll_screen(){
                         }
                     break;
                     case WALL_BIG:
-                        switch((((temp&1)==0)<<1)+(i&1)){
+                        switch(temp2){
                             case 0:
                                 if(current_line[temp4-1] != WALL_BIG){
                                     update_list[3+i] = 0xA4 + (rand8()&1);
@@ -892,11 +925,64 @@ void scroll_screen(){
                             break;
                         }
                     break;
+                    
+                    case FOREST:
+                    {
+                        temp3 = 0;
+                        switch(temp2){
+                            case 0:
+                                update_list[3+i] = 0x4;
+                                temp3 += current_line[temp4-1] == FOREST;
+                                temp3 += prev_line[temp4] == FOREST;
+                            break;
+                            case 1:
+                                update_list[3+i] = 0x5;
+                                temp3 += current_line[temp4+1] == FOREST;
+                                temp3 += prev_line[temp4] == FOREST;
+                            break;
+                            case 2:
+                                update_list[3+i] = 0x6;
+                                temp3 += current_line[temp4-1] == FOREST;
+                                temp3 += next_line[temp4] == FOREST;
+                            break;
+                            case 3:
+                                update_list[3+i] = 0x7;
+                                temp3 += current_line[temp4+1] == FOREST;
+                                temp3 += next_line[temp4] == FOREST;
+                            break;
+                        
+                        }
+                        temp5 = 0;
+                        if(temp2 == ((row_index + temp4)&3)){
+                            if(temp3 == 0){
+                                temp5 = 1;
+                            }else if(temp3==1){
+                                temp5 = rand8() < 90;
+                            }else{
+                                temp5 = rand8() < 40;
+                            }
+                        }
+                        if(temp5){
+                            temp2 = grand8()&0x3F;
+                            if(temp2 > 9){
+                                update_list[3+i] = 0;
+                            }else{
+                                update_list[3+i] = 0x60 + temp2;
+                            }
+                        }else{
+                            if((temp2 < 2 && temp3 <= 1 && (rand8()&3)) || (rand8()&3) == 0){
+                                update_list[3+i] = 0xB8 + (rand8()&3);
+                            } else {
+                                update_list[3+i] = 0xA8 + (rand8()&3);
+                            }
+                        }
+                    }                    
+                    break;
                 }
             }
             
             if( (temp&1) != 0){
-                if( temp == 29){
+                if(temp == 29){
                     for(i=0;i<8;++i){
                         update_list[38+i] = (bg_colors[current_line[1 + (i<<1)]] | (bg_colors[current_line[1 + (i<<1)+1]]<<2));
                     }
@@ -909,6 +995,9 @@ void scroll_screen(){
                         update_list[38+i] += (bg_colors[current_line[1 + (i<<1)]] | (bg_colors[current_line[1 + (i<<1)+1]]<<2));
                     }
                 }
+            } else {
+                current_line[1] = WALL;
+                current_line[16] = WALL;
             }
         }
         
@@ -935,8 +1024,10 @@ void reset(){
     next_line[0] = next_line[1] = WALL;
     next_line[16] = next_line[17] = WALL;
     
-    current_line[0] = current_line[1] = WALL;
-    current_line[16] = current_line[17] = WALL;
+    current_line[0] = WALL_GREEN;
+    current_line[1] = WALL;
+    current_line[16] = WALL;
+    current_line[17] = WALL_GREEN;
     
     prev_line[0] = prev_line[1] = WALL;
     prev_line[16] = prev_line[17] = WALL;
@@ -994,7 +1085,10 @@ void tick_enemies(){
             if(temp2 && (frame & 7) == 0){
                 craft_flags[i]--;
             }
-            if(temp2 == 0 || (craft_y[i] < 20 && sprite_dirs[i] == DIR_UP) || (craft_y[i] > 220 && sprite_dirs[i] == DIR_DOWN)|| isFreeIn(craft_x[i], craft_y[i]) == FALSE){
+            if(((frame+i)&3) == 0 ){
+                craft_x[i] = temp3;
+                craft_y[i] = temp4;
+            } else if(temp2 == 0 || (craft_y[i] < 20 && sprite_dirs[i] == DIR_UP) || (craft_y[i] > 220 && sprite_dirs[i] == DIR_DOWN)|| isFreeIn(craft_x[i], craft_y[i]) == FALSE){
                 craft_x[i] = temp3;
                 craft_y[i] = temp4;
                 
@@ -1106,9 +1200,9 @@ void main(void)
 		ppu_wait_frame();
         oam_clear();
 		spr=0;
-        //spr=oam_spr(20, wall_count, 0x79, 1, spr);
-        //spr=oam_spr(40, has_big_wall, 0x79, 1, spr);
-        //spr=oam_spr(60, wall_hit_y[0]&15, 0x79, 1, spr);
+        // spr=oam_spr(20, wall_count, 0x79, 1, spr);
+        // spr=oam_spr(40, has_big_wall, 0x79, 1, spr);
+        // spr=oam_spr(60, wall_hit_y[0]&15, 0x79, 1, spr);
             
         tick_crafts();
         tick_enemies();

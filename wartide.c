@@ -2,6 +2,7 @@
 
 #include "menu.h"
 
+#define DEBUG
 
 #define DIR_UP 1
 #define DIR_RIGHT 2
@@ -34,7 +35,7 @@ const unsigned char palette[]={
 0x29, 0x37, 0x26, 0x17,
 0x29, 0x31, 0x22, 0x11,
 0x29, 0x33, 0x23, 0x13,
-0x29, 0xF, 0xF, 0xF,
+0x29, 0x0F, 0x30, 0x30,
 }; 
 
 static const unsigned char bg_colors[]={
@@ -204,6 +205,7 @@ void menu(){
                 if(temp == 0){
                     craft_lives[0] = 3;
                     craft_lives[1] = 0;
+                    craft_types[1] = 255;
                     break;
                 }else if(temp == 1){
                     craft_lives[0] = 3;
@@ -258,6 +260,29 @@ void draw_tank(){
     
     spr=oam_spr(craft_x[i]-8, craft_y[i]-8, temp, temp2, spr);
     spr=oam_spr(craft_x[i],   craft_y[i]-8, temp^0x10, temp2, spr);
+}
+
+void draw_all(){
+    for(i=0;i<6; i++){
+        if(craft_types[i] == 255) continue;
+        draw_tank();
+        
+        if(i<2){
+            temp2 = (craft_hps[i]&254);
+            if((craft_hps[i]&1) && !(frame&16)){
+                temp2 += 2;
+            }
+            spr=oam_spr(i?256-20-8:20, 210, 0xA0+temp2, i, spr);
+        }
+    }
+    
+    
+    for(i=0; i<ENEMY_BULLET_COUNT; ++i){
+        if(craft_bullet_y[i] == 255) continue;
+         spr=oam_spr(craft_bullet_x[i]-2, craft_bullet_y[i]-2, 0x80, i<CRAFT_BULLET_COUNT?i&1:2, spr);
+    }
+    
+    
 }
 
 void init(){
@@ -471,10 +496,6 @@ void tick_bullets(){
                 }
             }
         }
-    
-        if(craft_bullet_y[i] != 255)
-            spr=oam_spr(craft_bullet_x[i]-2, craft_bullet_y[i]-2, 0x80, i<CRAFT_BULLET_COUNT?i&1:2, spr);
-        
     }
 }
 void tick_crafts(){
@@ -488,14 +509,6 @@ void tick_crafts(){
             craft_lives[i]--;
         }
         pad=pad_poll(i);
-        
-        draw_tank();
-        
-        temp2 = (craft_hps[i]&254);
-        if((craft_hps[i]&1) && !(frame&16)){
-            temp2 += 2;
-        }
-        spr=oam_spr(i?256-20-8:20, 220, 0xA0+temp2, i&1, spr);
         
         temp2 = (pad&(PAD_UP|PAD_DOWN)) && sprite_dirs[i] != DIR_LEFT && sprite_dirs[i] != DIR_RIGHT;
         temp4 = (pad&(PAD_LEFT|PAD_RIGHT)) && sprite_dirs[i] != DIR_UP && sprite_dirs[i] != DIR_DOWN;
@@ -1160,11 +1173,75 @@ void tick_enemies(){
                     }
                 }
             }
-            if(craft_types[i] != 255)
-                draw_tank();
         }
     }
+}
 
+void check_pause(){
+    if((pad_poll(0)|pad_poll(1)) & PAD_START){
+        
+        temp = 4;
+        
+        while(temp>0){
+            temp--;
+            pal_bright(temp);
+            
+            temp2 = 3;
+            while(temp2--){
+                ppu_wait_frame();
+            }
+        }
+        
+        oam_clear();
+		spr=0;
+        for(i=0; i<7; i++){
+            spr=oam_spr(100+(i<<3), 100, 0xF2+(i<<1), 3, spr);
+        }
+    
+        temp = 0;
+        
+        while(temp<4){
+            temp++;
+            pal_spr_bright(temp);
+            
+            temp2 = 3;
+            while(temp2--){
+                ppu_wait_frame();
+            }
+        }
+        
+        while(1){
+            ppu_wait_frame();
+            
+            if((pad_poll(0)|pad_poll(1)) & PAD_START) break;
+        }
+        
+        temp = 4;
+        while(temp>0){
+            temp--;
+            pal_spr_bright(temp);
+            
+            temp2 = 3;
+            while(temp2--){
+                ppu_wait_frame();
+            }
+        }
+        
+        oam_clear();
+		spr=0;
+        draw_all();
+        temp = 0;
+        while(temp<4){
+            temp++;
+            pal_bright(temp);
+            
+            temp2 = 3;
+            while(temp2--){
+                ppu_wait_frame();
+            }
+        }
+        
+    }
 }
 
 void main(void)
@@ -1200,14 +1277,17 @@ void main(void)
 		ppu_wait_frame();
         oam_clear();
 		spr=0;
-        // spr=oam_spr(20, wall_count, 0x79, 1, spr);
-        // spr=oam_spr(40, has_big_wall, 0x79, 1, spr);
-        // spr=oam_spr(60, wall_hit_y[0]&15, 0x79, 1, spr);
+        
+        #ifdef DEBUG
+            spr=oam_spr(20, wall_count, 0x79, 1, spr);
+            spr=oam_spr(40, has_big_wall, 0x79, 1, spr);
+            spr=oam_spr(60, wall_hit_y[0]&15, 0x79, 1, spr);
+        #endif
             
         tick_crafts();
         tick_enemies();
         tick_bullets();
-            
+        draw_all();
         temp = 255;
         if(craft_lives[0] && temp > craft_y[0]) temp = craft_y[0];
         if(craft_lives[1] && temp > craft_y[1]) temp = craft_y[1];
@@ -1218,6 +1298,10 @@ void main(void)
         {
             scroll_screen();
         }
+        
+        check_pause();
+        
+        
 		++frame;
 	}
 }

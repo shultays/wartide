@@ -21,4 +21,3 @@ pause
 
 :exit
 
-@del %1.s

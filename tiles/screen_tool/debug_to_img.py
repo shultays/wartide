@@ -1,7 +1,7 @@
 import Image
 import sys
 
-img = Image.open("bannercrop_debug2.bmp")
+img = Image.open("ss2_debug.bmp")
 
 if img.size[0]%9 != 0 or img.size[1]%9 != 0:
     print "Wrong Size"
@@ -22,5 +22,5 @@ for x in xrange(a):
             for m in xrange(8):
                 pout[n+x*8, m+y*8] = pimg[n+x*9, m+y*9] 
 
-out.save("bannercrop_2.bmp") 
+out.save("ss2_debug_o.bmp") 
 

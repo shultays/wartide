@@ -416,7 +416,7 @@ for i in xrange(size):
 dst.append(tag)
 dst.append(0)
 
-f = open('../../menu.h', 'w')
+f = open('../../pause_menu.h', 'w')
 f.write('const unsigned char menu_data[]={\n') 
 c = 16
 for i in dst:

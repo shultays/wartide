@@ -1,6 +1,7 @@
 #include "neslib.h"
 
 #include "defines.h"
+#include "debugger.h"
 #include "temp_control.h"
 #include "menu.h"
 
@@ -255,7 +256,6 @@ void init(void){
     
 
 	frame=0;
-
 }
 void tick_bullets(void){
     CHECK_FREE(1);
@@ -476,6 +476,10 @@ void tick_bullets(void){
 }
 
 void tick_crafts(void){
+
+    if(pad_poll(0)&PAD_B) TIMER_ENABLE(0);
+    
+    TIMER_BEGIN(0);
     CHECK_FREE(1);
     #define shoot_left temp1
     CHECK_FREE(3);
@@ -573,6 +577,7 @@ void tick_crafts(void){
         }else{
             --craft_bullet_timers[i];
         }
+        TIMER_TICK(0);
     }
 
     #undef pad
@@ -586,6 +591,8 @@ void tick_crafts(void){
     #undef shoot_left
     SET_FREE(1);    
     
+    TIMER_END(0);
+    if(pad_poll(0)&PAD_B)  TIMER_DISABLE(0);
 }
 
 //temp0 is scroll amount
@@ -1087,6 +1094,12 @@ void reset(void){
         used_temps = 0;
     #endif
     
+    #ifdef HAS_DEBUGGER
+        debug_info_val = 0;
+        break_points_enable_val = 0;
+        break_point_val = 0;
+    #endif
+    
     for(i=0; i<6; i++){
         craft_flags[i] = 0;
     }
@@ -1364,13 +1377,12 @@ void main(void){
 		ppu_wait_frame();
         oam_clear();
 		spr=0;
-        
         #ifdef DEBUG
             spr=oam_spr(20, wall_count, 0x79, 1, spr);
             spr=oam_spr(40, has_big_wall, 0x79, 1, spr);
             spr=oam_spr(60, wall_hit_y[0]&15, 0x79, 1, spr);
         #endif
-            
+
         tick_crafts();
         tick_enemies();
         tick_bullets();
@@ -1385,9 +1397,12 @@ void main(void){
             }
         }
     
+    
         scroll_screen();
         
+        
         check_pause();
+        
         
 		++frame;
 	}

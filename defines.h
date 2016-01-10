@@ -1,5 +1,7 @@
 // #define DEBUG
 
+#define HAS_DEBUGGER
+
 #define DIR_UP 1
 #define DIR_RIGHT 2
 #define DIR_DOWN 4

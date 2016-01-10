@@ -74,8 +74,9 @@ PPU_CTRL_VAR: 		.res 1
 PPU_CTRL_VAR1: 		.res 1
 PPU_MASK_VAR: 		.res 1
 RAND_SEED: 			.res 2
+.if FT_ENABLE
 FT_TEMP: 			.res 3
-
+.endif
 TEMP: 				.res 11
 
 PAD_BUF		=TEMP+1

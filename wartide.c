@@ -1,99 +1,27 @@
 #include "neslib.h"
 
+#include "defines.h"
+#include "temp_control.h"
 #include "menu.h"
 
-#define DEBUG
+#pragma bssseg(push,"ZEROPAGE")
+#pragma dataseg(push,"ZEROPAGE")
 
-#define DIR_UP 1
-#define DIR_RIGHT 2
-#define DIR_DOWN 4
-#define DIR_LEFT 8
-
-#define DIR_UP_RIGHT (DIR_UP | DIR_RIGHT)
-#define DIR_DOWN_RIGHT (DIR_DOWN | DIR_RIGHT)
-#define DIR_DOWN_LEFT (DIR_DOWN | DIR_LEFT)
-#define DIR_UP_LEFT (DIR_UP | DIR_LEFT)
-
-#define MAX_Y (253-16)
-#define CRAFT_BULLET_COUNT 8
-#define ENEMY_BULLET_COUNT 12
-
-
-#define GRASS 0
-#define WALL 1
-#define WALL_GREEN 3
-#define WALL_BIG 5
-#define WATER 2
-#define FOREST 4
-
-const unsigned char palette[]={ 
-0x29,0x27,0x17,0x07, // mountains
-0x29,0x27,0x19,0x18, // grass, trees
-0x29,0xF,0x2D,0x3D, // menu
-0x29,0x21,0x1C,0xF, // water
-
-0x29, 0x37, 0x26, 0x17,
-0x29, 0x31, 0x22, 0x11,
-0x29, 0x33, 0x23, 0x13,
-0x29, 0x0F, 0x30, 0x30,
-}; 
-
-static const unsigned char bg_colors[]={
-	1,
-	0,
-	3,
-	1,
-	1,
-    0,
-};
-
-static const char water_tiles[] = {
-0xBD,
-0x8C,
-0xAC,
-0xDC,
-
-0xBF,
-0x8C,
-0x9C,
-0xDF,
-
-0xBC,
-0x7C,
-0xAC,
-0xDD,
-
-0xBE,
-0x7C,
-0x9C,
-0xDE,
-};
-
-
-static const char wall_tiles[] = {0x80,
-0x84,
-0x90,
-0x99,
-0x82,
-0x84,
-0xA0,
-0x98,
-0x70,
-0x74,
-0x90,
-0x9B,
-0x72,
-0x74,
-0xA0,
-0x9A};
-
-
-static unsigned char i;
-static unsigned char pad, spr;
-static unsigned char frame;
+static unsigned char i, j;
 
 static unsigned char craft_x[6];
 static unsigned char craft_y[6];
+
+static unsigned int blocked[15] = {0};
+static unsigned int bullet_blocked[15] = {0};
+
+#pragma bssseg (push,"BSS")
+#pragma dataseg(push,"BSS")
+
+static unsigned char spr;
+static unsigned char frame;
+
+static unsigned char update_list[3+32+3+8+1];//3 bytes address and length for 32 tiles, 3 bytes address and length for 8 attributes, end marker
 
 static unsigned char sprite_dirs[6] = {DIR_UP, DIR_UP, DIR_DOWN, DIR_DOWN, DIR_DOWN, DIR_DOWN};
 static unsigned char sprite_look_dirs[6] = {0, 0, 0, 0, 0, 0};
@@ -110,15 +38,8 @@ static unsigned char wall_hit_hp[2];
 
 static unsigned char craft_lives[2] = {3, 3};
 
-static unsigned char temp;
-static unsigned char temp2;
-static unsigned char temp3;
-static unsigned char temp4;
-static unsigned char temp5;
-static unsigned char temp6;
-
-static unsigned char wall_count = 0;
-static unsigned char has_big_wall = 0;
+static unsigned char wall_count;
+static unsigned char has_big_wall;
 
 
 static unsigned char craft_bullet_x[ENEMY_BULLET_COUNT];
@@ -127,39 +48,25 @@ static unsigned char craft_bullet_flag[ENEMY_BULLET_COUNT]; // dir
 static unsigned char craft_bullet_timers[6] = {0, 0};
 
 static int scr = 0;
-static unsigned row_index = 0;
+static unsigned last_row_index = 0;
 static unsigned int adr = 0;
 
-static unsigned char update_list[3+32+3+8+1];//3 bytes address and length for 32 tiles, 3 bytes address and length for 8 attributes, end marker
-
-
 static unsigned char next_line[18] = {GRASS};
-static unsigned char next_wall;
-static unsigned char current_wall;
-static unsigned char prev_wall;
 static unsigned char current_line[18] = {GRASS};
 static unsigned char prev_line[18] = {GRASS};
 
-
-unsigned char grand8(){
-    return craft_x[0] ^ craft_x[1] ^ frame ^ rand8();
-}
-
-static unsigned int blocked[15] = {0};
-static unsigned int bullet_blocked[15] = {0};
-
 #define IS_BLOCKED(x, y) (blocked[y>>4] & (1<<(x>>4)))
 
-unsigned char isCellBulletFree(unsigned char i, unsigned char j){
+unsigned char __fastcall__ isCellBulletFree(unsigned char i, unsigned char j){
     return !(bullet_blocked[j] & (1<<(i)));
 }
 
-unsigned char isFreeIn(unsigned char x, unsigned char y){
+unsigned char __fastcall__ isFreeIn(unsigned char x, unsigned char y){
     y += (scr&15);
     return !(blocked[y>>4] & (1<<(x>>4)));
 }
 
-unsigned char isFree(unsigned char x, unsigned char y, unsigned char dir){
+unsigned char __fastcall__ isFree(unsigned char x, unsigned char y, unsigned char dir){
     if(dir == DIR_LEFT) x-=3;
     else if(dir == DIR_RIGHT) x+=3;
     
@@ -184,95 +91,131 @@ unsigned char damage_craft(unsigned char index, unsigned char damage){
     return 1;
 }
 
-void menu(){
-    temp = 0;
-    temp2 = 0;
+void menu(void){
+    CHECK_FREE(0);
+    #define selected_item temp0
+    
+    CHECK_FREE(1);
+    #define old_pad temp1
+    
+    CHECK_FREE(2);
+    #define pad temp2
+    
+    selected_item = 0;
+    old_pad = 0;
 	while(1){
 		++frame;
 		ppu_wait_frame();
         spr = 0;
         pad=pad_poll(0)|pad_poll(1);
         
-        if(temp2 != pad){
-            temp2 = pad;
+        if(old_pad != pad){
+            old_pad = pad;
             if(pad&PAD_UP){
-                --temp;
-                if(temp == 255) temp = 2;
+                --selected_item;
+                if(selected_item == 255) selected_item = 2;
             } else if(pad&PAD_DOWN){
-                ++temp;
-                if(temp == 3) temp = 0;
+                ++selected_item;
+                if(selected_item == 3) selected_item = 0;
             } else if(pad&(PAD_A|PAD_B|PAD_START|PAD_SELECT)){
-                if(temp == 0){
+                if(selected_item == 0){
                     craft_lives[0] = 3;
                     craft_lives[1] = 0;
                     craft_types[1] = 255;
                     break;
-                }else if(temp == 1){
+                }else if(selected_item == 1){
                     craft_lives[0] = 3;
                     craft_lives[1] = 3;
                     break;
                 }
             }
         }
-        spr=oam_spr(61,   139 + temp * 16, 0x24, 1, spr);
-        spr=oam_spr(61+8, 139 + temp * 16, 0x34, 1, spr);
+        spr=oam_spr(61,   139 + selected_item * 16, 0x24, 1, spr);
+        spr=oam_spr(61+8, 139 + selected_item * 16, 0x34, 1, spr);
     }
+    
+    #undef pad
+    SET_FREE(2);
+    #undef old_pad
+    SET_FREE(1);
+    #undef selected_item
+    SET_FREE(0);
 }
 
-void draw_tank(){
-    temp = craft_types[i]?0x00:0x40;
+void draw_tank(void){
+    CHECK_FREE(0);
+    #define craft_sprite temp0
+    
+    CHECK_FREE(1);
+    #define craft_sprite_prop temp1
+    
+    craft_sprite = craft_types[i]?0x00:0x40;
     
     switch(sprite_dirs[i]){
     case DIR_UP:
-        temp += 0x04;
-        temp2 = 0;
+        craft_sprite += 0x04;
+        craft_sprite_prop = 0;
     break;
     case DIR_RIGHT:
-        temp += 0x24;
-        temp2 = 0;
+        craft_sprite += 0x24;
+        craft_sprite_prop = 0;
     break;
     case DIR_DOWN:
-        temp += 0x04;
-        temp2 = OAM_FLIP_V;
+        craft_sprite += 0x04;
+        craft_sprite_prop = OAM_FLIP_V;
     break;
     case DIR_LEFT:
-        temp += 0x34;
-        temp2 = OAM_FLIP_H;
+        craft_sprite += 0x34;
+        craft_sprite_prop = OAM_FLIP_H;
     break;
     }
     if(sprite_look_dirs[i] == DIR_LEFT){
-        temp += 0x08;
+        craft_sprite += 0x08;
     }else if(sprite_look_dirs[i] == DIR_RIGHT){
-        temp += 0x04;
+        craft_sprite += 0x04;
     }
     
     if(i < 2){
-        if((pad&(PAD_LEFT|PAD_RIGHT|PAD_UP|PAD_DOWN)) && (frame & 8)){
-            temp += 2;
+        if((frame & 8) == (i?8:0)&& (pad_poll(i)&(PAD_LEFT|PAD_RIGHT|PAD_UP|PAD_DOWN))){
+            craft_sprite += 2;
         }
-        temp2 = i | temp2;
+        craft_sprite_prop = i | craft_sprite_prop;
     }else{
-        temp2 |= 2;
+        craft_sprite_prop |= 2;
         if(frame & 8){
-            temp += 2;
+            craft_sprite += 2;
         }
     }
     
-    spr=oam_spr(craft_x[i]-8, craft_y[i]-8, temp, temp2, spr);
-    spr=oam_spr(craft_x[i],   craft_y[i]-8, temp^0x10, temp2, spr);
+    spr=oam_spr(craft_x[i]-8, craft_y[i]-8, craft_sprite, craft_sprite_prop, spr);
+    spr=oam_spr(craft_x[i],   craft_y[i]-8, craft_sprite^0x10, craft_sprite_prop, spr);
+    
+    #undef craft_sprite_prop
+    SET_FREE(1);
+    #undef craft_sprite
+    SET_FREE(0);
 }
 
-void draw_all(){
+void draw_all(void){
     for(i=0;i<6; i++){
         if(craft_types[i] == 255) continue;
         draw_tank();
         
         if(i<2){
-            temp2 = (craft_hps[i]&254);
+        
+            CHECK_FREE(1);
+            #define craft_hp_sprite temp1
+            
+            craft_hp_sprite = (craft_hps[i]&254);
             if((craft_hps[i]&1) && !(frame&16)){
-                temp2 += 2;
+                craft_hp_sprite += 2;
             }
-            spr=oam_spr(i?256-20-8:20, 210, 0xA0+temp2, i, spr);
+            spr=oam_spr(i?256-20-8:20, 210, 0xA0+craft_hp_sprite, i, spr);
+                    
+                    
+            #undef craft_hp_sprite
+            SET_FREE(1);
+            
         }
     }
     
@@ -281,11 +224,9 @@ void draw_all(){
         if(craft_bullet_y[i] == 255) continue;
          spr=oam_spr(craft_bullet_x[i]-2, craft_bullet_y[i]-2, 0x80, i<CRAFT_BULLET_COUNT?i&1:2, spr);
     }
-    
-    
 }
 
-void init(){
+void init(void){
     oam_size(1);
     bank_spr(0);
     bank_bg(1);
@@ -316,13 +257,21 @@ void init(){
 	frame=0;
 
 }
-void tick_bullets(){
+void tick_bullets(void){
+    CHECK_FREE(1);
+    #define bullet_grid_pos_y temp1
+
+    CHECK_FREE(2);
+    #define bullet_grid_pos_x temp2
+    
+    CHECK_FREE(4);
+    #define has_collision temp4
+    
     for(i=0; i<ENEMY_BULLET_COUNT; ++i){
         if(craft_bullet_y[i] == 255) continue;
-        
-        temp = craft_bullet_flag[i] & 0xF;
-        
-        switch(temp){
+            
+            
+        switch(craft_bullet_flag[i] & 0xF){ // bullet_dir
         case DIR_UP:
             craft_bullet_y[i] -= 3;
         break;
@@ -356,37 +305,46 @@ void tick_bullets(){
             craft_bullet_y[i] = 255;
             continue;
         }
-        temp2 = (craft_bullet_y[i] + (scr&15))>>4;
-        temp3 = craft_bullet_x[i]>>4;
-        temp = isCellBulletFree(temp3, temp2) == FALSE;
+        
+        
+        bullet_grid_pos_y = (craft_bullet_y[i] + (scr&15))>>4;
+        bullet_grid_pos_x = craft_bullet_x[i]>>4;
+        
+        has_collision = isCellBulletFree(bullet_grid_pos_x, bullet_grid_pos_y) == FALSE;
+        
         if(i<CRAFT_BULLET_COUNT)
         {
-            if(temp)
-            {
-                if(wall_hit_hp[i&1] == 0 ||(wall_hit_x[i&1]&15) != temp3 || (wall_hit_y[i&1]&15) != temp2)
+            if(has_collision){
+                if(wall_hit_hp[i&1] == 0 ||(wall_hit_x[i&1]&15) != bullet_grid_pos_x || (wall_hit_y[i&1]&15) != bullet_grid_pos_y)
                 {
-                    wall_hit_x[i&1] = (wall_hit_x[i&1]&0xF0) | temp3;
-                    wall_hit_y[i&1] = (wall_hit_y[i&1]&0xF0) | temp2;
+                    wall_hit_x[i&1] = (wall_hit_x[i&1]&0xF0) | bullet_grid_pos_x;
+                    wall_hit_y[i&1] = (wall_hit_y[i&1]&0xF0) | bullet_grid_pos_y;
                     wall_hit_hp[i&1] = 5;
                 }
                 wall_hit_hp[i&1]--;
-                if(wall_hit_hp[i&1] == 0 && temp3 != 0 && temp3 != 15)
-                {
-                
-                    temp6 = 1;
-                    bullet_blocked[temp2] ^= (1<<temp3);
-                    blocked[temp2] ^= (1<<temp3);
-                    temp = row_index;
-                    if(temp&1) temp--;
-                    temp +=(temp2<<1);
-                    if(temp>=60) temp-=60;
-                    if(temp<30){
-                        adr = NAMETABLE_A+(temp<<5);
+                if(wall_hit_hp[i&1] == 0 && bullet_grid_pos_x != 0 && bullet_grid_pos_x != 15){
+                    bullet_blocked[bullet_grid_pos_y] ^= (1<<bullet_grid_pos_x);
+                    blocked[bullet_grid_pos_y] ^= (1<<bullet_grid_pos_x);
+                    
+                    
+                                    
+                    CHECK_FREE(0);
+                    #define row_index_on_ns temp0
+                    
+                    CHECK_FREE(5);
+                    #define collision_edge_data temp5
+                    
+                    row_index_on_ns = last_row_index;
+                    if(row_index_on_ns&1) row_index_on_ns--;
+                    row_index_on_ns +=(bullet_grid_pos_y<<1);
+                    if(row_index_on_ns>=60) row_index_on_ns-=60;
+                    if(row_index_on_ns<30){
+                        adr = NAMETABLE_A+(row_index_on_ns<<5);
                     }else{
-                        temp-=30;
-                        adr = NAMETABLE_C+(temp<<5);
+                        row_index_on_ns-=30;
+                        adr = NAMETABLE_C+(row_index_on_ns<<5);
                     }
-                    adr += temp3<<1;
+                    adr += bullet_grid_pos_x<<1;
                     update_list[0]=MSB(adr)|NT_UPD_HORZ;
                     update_list[1]=LSB(adr);
                     
@@ -400,16 +358,16 @@ void tick_bullets(){
                     
                     update_list[10]=NT_UPD_EOF;
                     
-                    temp5 = 0;
-                    if(temp2)
-                        temp5 |= (!isCellBulletFree(temp3, temp2-1) || (((wall_hit_x[i&1])>>4) == temp3 && ((wall_hit_y[i&1])>>4) == temp2-1));
-                    if(temp3)
-                        temp5 |= (!isCellBulletFree(temp3-1, temp2) || (((wall_hit_x[i&1])>>4) == temp3-1 && ((wall_hit_y[i&1])>>4) == temp2))<<1;
+                    collision_edge_data = 0;
+                    if(bullet_grid_pos_y)
+                        collision_edge_data |= (!isCellBulletFree(bullet_grid_pos_x, bullet_grid_pos_y-1) || (((wall_hit_x[i&1])>>4) == bullet_grid_pos_x && ((wall_hit_y[i&1])>>4) == bullet_grid_pos_y-1));
+                    if(bullet_grid_pos_x)
+                        collision_edge_data |= (!isCellBulletFree(bullet_grid_pos_x-1, bullet_grid_pos_y) || (((wall_hit_x[i&1])>>4) == bullet_grid_pos_x-1 && ((wall_hit_y[i&1])>>4) == bullet_grid_pos_y))<<1;
                         
-                    if(temp2<14)
-                        temp5 |= (!isCellBulletFree(temp3, temp2+1) || (((wall_hit_x[i&1])>>4) == temp3 && ((wall_hit_y[i&1])>>4) == temp2+1))<<2;
-                    if(temp3<15)
-                        temp5 |= (!isCellBulletFree(temp3+1, temp2) || (((wall_hit_x[i&1])>>4) == temp3+1 && ((wall_hit_y[i&1])>>4) == temp2))<<3;
+                    if(bullet_grid_pos_y<14)
+                        collision_edge_data |= (!isCellBulletFree(bullet_grid_pos_x, bullet_grid_pos_y+1) || (((wall_hit_x[i&1])>>4) == bullet_grid_pos_x && ((wall_hit_y[i&1])>>4) == bullet_grid_pos_y+1))<<2;
+                    if(bullet_grid_pos_x<15)
+                        collision_edge_data |= (!isCellBulletFree(bullet_grid_pos_x+1, bullet_grid_pos_y) || (((wall_hit_x[i&1])>>4) == bullet_grid_pos_x+1 && ((wall_hit_y[i&1])>>4) == bullet_grid_pos_y))<<3;
                         
                     // 1 up
                     // 2 left
@@ -422,39 +380,39 @@ void tick_bullets(){
                     // update_list[9] = 0xC1;
                         
                     
-                    if((temp5 & 3) == 3)
+                    if((collision_edge_data & 3) == 3)
                         update_list[3] = 0xB0;
-                    else if(temp5 & 1)
+                    else if(collision_edge_data & 1)
                         update_list[3] = 0xB4;
-                    else if(temp5 & 2)
+                    else if(collision_edge_data & 2)
                         update_list[3] = 0xB2;
                     else 
                         update_list[3] = 0;
                         
-                    if((temp5 & 9) == 9)
+                    if((collision_edge_data & 9) == 9)
                         update_list[4] = 0xB1;
-                    else if(temp5 & 1)
+                    else if(collision_edge_data & 1)
                         update_list[4] = 0xB5;
-                    else if(temp5 & 8)
+                    else if(collision_edge_data & 8)
                         update_list[4] = 0xB3;
                     else 
                         update_list[4] = 0;
                     
                     
-                    if((temp5 & 6) == 6)
+                    if((collision_edge_data & 6) == 6)
                         update_list[8] = 0xC0;
-                    else if(temp5 & 4)
+                    else if(collision_edge_data & 4)
                         update_list[8] = 0xC4;
-                    else if(temp5 & 2)
+                    else if(collision_edge_data & 2)
                         update_list[8] = 0xC2;
                     else 
                         update_list[8] = 0;
                         
-                    if((temp5 & 12) == 12)
+                    if((collision_edge_data & 12) == 12)
                         update_list[9] = 0xC1;
-                    else if(temp5 & 4)
+                    else if(collision_edge_data & 4)
                         update_list[9] = 0xC5;
-                    else if(temp5 & 8)
+                    else if(collision_edge_data & 8)
                         update_list[9] = 0xC3;
                     else 
                         update_list[9] = 0;
@@ -462,16 +420,24 @@ void tick_bullets(){
                         
                     wall_hit_x[i&1] <<= 4;
                     wall_hit_y[i&1] <<= 4;
+                    
+                                    
+                    #undef collision_edge_data
+                    SET_FREE(5);
+                    
+                    #undef row_index_on_ns
+                    SET_FREE(0);
+                    
                 }
                 
                 craft_bullet_y[i] = 255;
                 continue;
             }
             
-            for(temp2=2; temp2<6; temp2++){
-                if(craft_types[temp2] != 255){
-                    if(craft_bullet_x[i] > craft_x[temp2]-6 && craft_bullet_x[i] < craft_x[temp2]+6 && craft_bullet_y[i] > craft_y[temp2]-6 && craft_bullet_y[i] < craft_y[temp2]+6){
-                        damage_craft(temp2, 1);
+            for(j=2; j<6; j++){
+                if(craft_types[j] != 255){
+                    if(craft_bullet_x[i] > craft_x[j]-6 && craft_bullet_x[i] < craft_x[j]+6 && craft_bullet_y[i] > craft_y[j]-6 && craft_bullet_y[i] < craft_y[j]+6){
+                        damage_craft(j, 1);
                         craft_bullet_y[i] = 255;
                         break;
                     }
@@ -481,26 +447,47 @@ void tick_bullets(){
         }
         else
         {
-            if(temp)
-            {
+            if(has_collision){
                 craft_bullet_y[i] = 255;
                 continue;
             }
-            for(temp2=0; temp2<2; temp2++){
-                if(craft_lives[temp2] > 0){
-                    if(craft_bullet_x[i] > craft_x[temp2]-6 && craft_bullet_x[i] < craft_x[temp2]+6 && craft_bullet_y[i] > craft_y[temp2]-6 && craft_bullet_y[i] < craft_y[temp2]+6){
-                        damage_craft(temp2, 1);
+            for(j=0; j<2; j++){
+                if(craft_lives[j] > 0){
+                    if(craft_bullet_x[i] > craft_x[j]-6 && craft_bullet_x[i] < craft_x[j]+6 && craft_bullet_y[i] > craft_y[j]-6 && craft_bullet_y[i] < craft_y[j]+6){
+                        damage_craft(j, 1);
                         craft_bullet_y[i] = 255;
                         continue;
                     }
                 }
             }
         }
+        
+        
     }
+    
+    #undef has_collision
+    SET_FREE(4);
+    
+    #undef bullet_grid_pos_x
+    SET_FREE(2);
+    
+    #undef bullet_grid_pos_y
+    SET_FREE(1);
 }
-void tick_crafts(){
-    for(i=0;i<2;++i){
 
+void tick_crafts(void){
+    CHECK_FREE(1);
+    #define shoot_left temp1
+    CHECK_FREE(3);
+    #define shoot_right temp3
+    CHECK_FREE(2);
+    #define move_dir temp2
+    CHECK_FREE(4);
+    #define move_amount temp4
+    CHECK_FREE(0);
+    #define pad temp0
+    
+    for(i=0;i<2;++i){
         if(!craft_lives[i]) continue;
       
         if(craft_hps[i] == 0)
@@ -510,24 +497,24 @@ void tick_crafts(){
         }
         pad=pad_poll(i);
         
-        temp2 = (pad&(PAD_UP|PAD_DOWN)) && sprite_dirs[i] != DIR_LEFT && sprite_dirs[i] != DIR_RIGHT;
-        temp4 = (pad&(PAD_LEFT|PAD_RIGHT)) && sprite_dirs[i] != DIR_UP && sprite_dirs[i] != DIR_DOWN;
+        shoot_left = (pad&(PAD_UP|PAD_DOWN)) && sprite_dirs[i] != DIR_LEFT && sprite_dirs[i] != DIR_RIGHT;
+        shoot_right = (pad&(PAD_LEFT|PAD_RIGHT)) && sprite_dirs[i] != DIR_UP && sprite_dirs[i] != DIR_DOWN;
         
-        temp3 = 0;
+        move_dir = 0;
         sprite_look_dirs[i] = 0;
-        temp5 = 0;
+        move_amount = 0;
         if(pad&PAD_LEFT){
-            temp5++;
-            temp3 |= DIR_LEFT;
-            if(temp2){
+            move_amount++;
+            move_dir |= DIR_LEFT;
+            if(shoot_left){
                 sprite_look_dirs[i] = DIR_LEFT;
             }else{
                 sprite_dirs[i] = DIR_LEFT;
             }
         } else if(pad&PAD_RIGHT){
-            temp5++;
-            temp3 |= DIR_RIGHT;
-            if(temp2){
+            move_amount++;
+            move_dir |= DIR_RIGHT;
+            if(shoot_left){
                 sprite_look_dirs[i] = DIR_RIGHT;
             }else{
                 sprite_dirs[i] = DIR_RIGHT;
@@ -535,37 +522,37 @@ void tick_crafts(){
         } 
         
         if(pad&PAD_UP){
-            temp5++;
-            temp3 |= DIR_UP;
-            if(temp4){
+            move_amount++;
+            move_dir |= DIR_UP;
+            if(shoot_right){
                 sprite_look_dirs[i] = DIR_LEFT;
             }else{
                 sprite_dirs[i] = DIR_UP;
             }
         } else if(pad&PAD_DOWN){
-            temp5++;
-            temp3 |= DIR_DOWN;
-            if(temp4){
+            move_amount++;
+            move_dir |= DIR_DOWN;
+            if(shoot_right){
                 sprite_look_dirs[i] = DIR_RIGHT;
             }else{
                 sprite_dirs[i] = DIR_DOWN;
             }
         }
-        if(temp5 == 1 || (frame&3) != 0)
+        if(move_amount == 1 || (frame&3) != 0)
         {
-            if((temp3&DIR_LEFT) && isFree(craft_x[i], craft_y[i], DIR_LEFT)){
+            if((move_dir&DIR_LEFT) && isFree(craft_x[i], craft_y[i], DIR_LEFT)){
                 craft_x[i]--;
             }
-            if((temp3&DIR_RIGHT) && isFree(craft_x[i], craft_y[i], DIR_RIGHT)){
+            if((move_dir&DIR_RIGHT) && isFree(craft_x[i], craft_y[i], DIR_RIGHT)){
                 craft_x[i]++;
             }
         }
-        if(temp5 == 1 || (frame&3) != 1)
+        if(move_amount == 1 || (frame&3) != 1)
         {
-            if((temp3&DIR_UP) && (((craft_y[i]-3+(scr&15))>>4) == 15 || isFree(craft_x[i], craft_y[i], DIR_UP))){
+            if((move_dir&DIR_UP) && (((craft_y[i]-3+(scr&15))>>4) == 15 || isFree(craft_x[i], craft_y[i], DIR_UP))){
                 craft_y[i]--;
             }
-            if((temp3&DIR_DOWN) && isFree(craft_x[i], craft_y[i], DIR_DOWN)){
+            if((move_dir&DIR_DOWN) && isFree(craft_x[i], craft_y[i], DIR_DOWN)){
                 craft_y[i]++;
             }
         }
@@ -574,11 +561,11 @@ void tick_crafts(){
         
         if(craft_bullet_timers[i] == 0){
             if(pad&PAD_A){
-                for(temp=i; temp < CRAFT_BULLET_COUNT; temp += 2){
-                    if(craft_bullet_y[temp] != 255) continue;
-                    craft_bullet_x[temp] = craft_x[i];
-                    craft_bullet_y[temp] = craft_y[i];
-                    craft_bullet_flag[temp] = temp3 | sprite_dirs[i];
+                for(j=i; j < CRAFT_BULLET_COUNT; j += 2){
+                    if(craft_bullet_y[j] != 255) continue;
+                    craft_bullet_x[j] = craft_x[i];
+                    craft_bullet_y[j] = craft_y[i];
+                    craft_bullet_flag[j] = move_dir | sprite_dirs[i];
                     craft_bullet_timers[i] = 16;
                     break;
                 }                
@@ -587,61 +574,86 @@ void tick_crafts(){
             --craft_bullet_timers[i];
         }
     }
+
+    #undef pad
+    SET_FREE(0);
+    #undef move_amount
+    SET_FREE(4);
+    #undef move_dir
+    SET_FREE(2);
+    #undef shoot_right
+    SET_FREE(3);
+    #undef shoot_left
+    SET_FREE(1);    
+    
 }
 
-
-void scroll_screen(){
-    if(temp < 150){
-        temp2 = 150 - temp;
-        if(enemy_spawn_scr > temp2){
-            enemy_spawn_scr -= temp2;
+//temp0 is scroll amount
+void scroll_screen(void){
+    if(temp0 < 150){
+        CHECK_FREE(1);
+        CHECK_FREE(2);
+        CHECK_FREE(3);
+        CHECK_FREE(4);
+        CHECK_FREE(5);
+    
+        #define scroll_amount temp1
+        
+        CHECK_FREE(0);
+        #define row_index temp0
+    
+        set_rand(rand16()^frame^craft_x[0]^craft_y[1]);
+        
+        if(enemy_spawn_scr > scroll_amount){
+            enemy_spawn_scr -= scroll_amount;
         }else{
             enemy_spawn_scr = 0;
         }
         for(i=0;i<6;++i){
-            craft_y[i] += temp2;
+            craft_y[i] += scroll_amount;
             if(craft_y[i] >= MAX_Y+1) craft_y[i] = MAX_Y+1;
         }
         
         for(i=0; i<ENEMY_BULLET_COUNT; ++i){
             if(craft_bullet_y[i] == 255) continue;
             
-            if(craft_bullet_y[i] > 255 - temp2){
+            if(craft_bullet_y[i] > 255 - scroll_amount){
                 craft_bullet_y[i] = 255;
             }else{
-                craft_bullet_y[i] += temp2;
+                craft_bullet_y[i] += scroll_amount;
             }
         }
-        scr -= temp2;
+        scr -= scroll_amount;
         if(scr<0) scr+=240*2;
+        #undef scroll_amount
         
-        temp = scr>>3;
-        if(temp>=60) temp-=60;
-        if(row_index != temp){
-            row_index = temp;
+        row_index = scr>>3;
+        if(row_index>=60) row_index-=60;
+        if(last_row_index != row_index){
+            last_row_index = row_index;
             update_list[2]=32;
-            if(temp<30){
-                adr = NAMETABLE_A+(temp<<5);
+            if(row_index<30){
+                adr = NAMETABLE_A+(row_index<<5);
                 update_list[0]=MSB(adr)|NT_UPD_HORZ;
                 update_list[1]=LSB(adr);
                                 
-                adr=NAMETABLE_A+960+((temp>>2)<<3);
+                adr=NAMETABLE_A+960+((row_index>>2)<<3);
                 update_list[35]=MSB(adr)|NT_UPD_HORZ;//set attribute table update address
                 update_list[36]=LSB(adr);
             }else{
-                temp-=30;
+                row_index-=30;
 
-                adr = NAMETABLE_C+(temp<<5);
+                adr = NAMETABLE_C+(row_index<<5);
                 update_list[0]=MSB(adr)|NT_UPD_HORZ;
                 update_list[1]=LSB(adr);
                                 
                                 
-                adr=NAMETABLE_C+960+((temp>>2)<<3);
+                adr=NAMETABLE_C+960+((row_index>>2)<<3);
                 update_list[35]=MSB(adr)|NT_UPD_HORZ;//set attribute table update address
                 update_list[36]=LSB(adr);
             }
  
-            if(temp&1){
+            if(row_index&1){ // build new line
                 if((wall_hit_y[0]&0xF) != 0xF){
                     wall_hit_y[0]++;
                 }
@@ -668,45 +680,51 @@ void scroll_screen(){
                         next_line[i] = GRASS;
                     }
                 }
-                prev_wall = current_wall;
-                current_wall = next_wall;
-                next_wall = 0;
                 
                 wall_count -= (wall_count>>3);
                 if(wall_count>0) wall_count--;
                 if(has_big_wall) has_big_wall--;
                 
-                if(wall_count < 2 && (grand8()<150)){
+                if(wall_count < 2 && (rand8()<150)){
                     wall_count = 0;
-                    temp3 = grand8();
-                    if(has_big_wall) temp2 = WALL;
-                    else if(temp3 < 60) temp2 = WATER;
-                    else if(temp3 < 120) temp2 = FOREST;
-                    else if(temp3 < 180){
-                        temp2 = WALL_BIG;
+                    #define selected_grid temp1
+                    #define random temp2
+                    random = rand8();
+                    if(has_big_wall) selected_grid = WALL;
+                    else if(random < 60) selected_grid = WATER;
+                    else if(random < 120) selected_grid = FOREST;
+                    else if(random < 180){
+                        selected_grid = WALL_BIG;
                         has_big_wall = 2;
                     } else {
-                        temp2 = WALL;
+                        selected_grid = WALL;
                     }
+                    #undef random
                     
-                    temp3 = 4+(grand8()&1)+(grand8()&3)+(grand8()&5);
-                    temp4 = temp3;
+                    #define grid_start temp2
+                    #define grid_end temp3
                     
-                    if(grand8()&1) temp3--;
-                    if(grand8()&1) temp4++;
+                    grid_start = 4+(rand8()&1)+(rand8()&3)+(rand8()&5);
+                    grid_end = grid_start;
                     
-                    if(temp2 != WALL_BIG){
-                        if(grand8()&1) temp3--;
-                        if(grand8()&1) temp4++;
+                    if(rand8()&1) grid_start--;
+                    if(rand8()&1) grid_end++;
+                    
+                    if(selected_grid != WALL_BIG){
+                        if(rand8()&1) grid_start--;
+                        if(rand8()&1) grid_end++;
                     }else{
-                        if(temp3 == temp4) (grand8()&1)?temp4++:temp3--;
+                        if(grid_start == grid_end) (rand8()&1)?grid_end++:grid_start--;
                     }
                     
-                    for(i=temp3; i<=temp4; i++){
-                        next_line[i] = temp2;
+                    for(i=grid_start; i<=grid_end; i++){
+                        next_line[i] = selected_grid;
                         wall_count++;
-                        next_wall++;
                     }
+                    
+                    #undef grid_start
+                    #undef grid_end
+                    #undef selected_grid
                 }
                 
                 for(i=2; i<16; i++){
@@ -714,84 +732,80 @@ void scroll_screen(){
                         if(current_line[i] == WALL_BIG){
                             next_line[i] = WALL;
                         }else{
-                            temp4 = ((next_line[i+1]&WALL&(i<13))<<1)+
+                            #define chance_to_grow temp3
+                            #define grow_chance_reduction temp2
+                        
+                            
+                            chance_to_grow = ((next_line[i+1]&WALL&(i<13))<<1)+
                                     ((next_line[i-1]&WALL&(i>3))<<1)+
                                     ((current_line[i]&WALL)<<1)+
                                     ((current_line[i-1]&WALL&(i>3)))+
                                     ((current_line[i+1]&WALL&(i<13)));
                                     
-                            temp3 = (wall_count>>2);
+                            grow_chance_reduction = (wall_count>>2);
                             
-                            if(temp4 > temp3){
-                                temp4 -= temp3;
+                            if(chance_to_grow > grow_chance_reduction){
+                                chance_to_grow -= grow_chance_reduction;
                             } else {
-                                temp4 = 0;
+                                chance_to_grow = 0;
                             }
                             
-                            if(temp4 >= 4){
+                            if(chance_to_grow >= 4){
                                 next_line[i] = WALL;
                                 wall_count++;
-                            }else if(temp4 >= 2){
-                                if(grand8()&1){
+                            }else if(chance_to_grow >= 2){
+                                if(rand8()&1){
                                     next_line[i] = WALL;
                                     wall_count++;
                                 }
                             }
                             
-                            temp4 = ((next_line[i+1]==WATER)<<1)+
+                            chance_to_grow = ((next_line[i+1]==WATER)<<1)+
                                     ((next_line[i-1]==WATER)<<1)+
                                     ((current_line[i]==WATER)<<1)+
                                     ((current_line[i-1]==WATER))+
                                     ((current_line[i+1]==WATER));
                                     
                                     
-                            temp3 = (wall_count>>2);
-                            
-                            if(temp4 > temp3){
-                                temp4 -= temp3;
+                            if(chance_to_grow > grow_chance_reduction){
+                                chance_to_grow -= grow_chance_reduction;
                             } else {
-                                temp4 = 0;
+                                chance_to_grow = 0;
                             }
-                            if(temp4 >= 5){
+                            if(chance_to_grow >= 5){
                                 next_line[i] = WATER;
                                 wall_count++;
-                            }else if(temp4 >= 3){
-                                if(grand8()&3){
+                            }else if(chance_to_grow >= 3){
+                                if(rand8()&3){
                                     next_line[i] = WATER;
                                     wall_count++;
                                 }
                             }
                             
-                            
-                            temp4 = ((next_line[i+1]==FOREST)<<1)+
+                            chance_to_grow = ((next_line[i+1]==FOREST)<<1)+
                                     ((next_line[i-1]==FOREST)<<1)+
                                     ((current_line[i]==FOREST)<<1)+
                                     ((current_line[i-1]==FOREST))+
                                     ((current_line[i+1]==FOREST));
                                     
-                                    
-                            temp3 = (wall_count>>2);
-                            
-                            if(temp4 > temp3){
-                                temp4 -= temp3;
+                            if(chance_to_grow > grow_chance_reduction){
+                                chance_to_grow -= grow_chance_reduction;
                             } else {
-                                temp4 = 0;
+                                chance_to_grow = 0;
                             }
-                            if(temp4 >= 5){
+                            if(chance_to_grow >= 5){
                                 next_line[i] = FOREST;
                                 wall_count++;
-                            }else if(temp4 >= 3){
-                                if(grand8()&3){
+                            }else if(chance_to_grow >= 3){
+                                if(rand8()&3){
                                     next_line[i] = FOREST;
                                     wall_count++;
                                 }
                             }
                             
+                            #undef grow_chance_reduction
+                            #undef chance_to_grow
                         }
-                    }
-                    
-                    if(next_line[i] & (WALL|WATER|FOREST)){
-                        next_wall++;
                     }
                 }
                 
@@ -823,114 +837,110 @@ void scroll_screen(){
                 }
                 
                 
-                for(i=14; i>0; i--)
-                {
+                for(i=14; i>0; i--){
                     blocked[i] = blocked[i-1];
                     bullet_blocked[i] = bullet_blocked[i-1];
                 }
                 blocked[0] = 0;
                 bullet_blocked[0] = 0;
-                for(i=0; i<16; i++)
-                {
-                    temp4 = i+1;
-                    if(current_line[i+1] != GRASS)
-                    {
-                        if(temp6 && i != 0 && i != 15){
-                            current_line[i+1] = GRASS;
-                        }else{
-                            blocked[0] |= (1<<i);
-                            if(current_line[i+1] != WATER)
-                            {
-                                bullet_blocked[0] |= (1<<i);
-                            }
+                for(i=0; i<16; i++){
+                    if(current_line[i+1] != GRASS){
+                        blocked[0] |= (1<<i);
+                        if(current_line[i+1] != WATER){
+                            bullet_blocked[0] |= (1<<i);
                         }
-                        
                     }
-                    
                 }
             }
             
             for(i=0; i<32; i++){
-                temp4 = 1+(i>>1);
-                temp2 = ((((temp&1)==0)<<1)+(i&1));
-                switch(current_line[temp4]){
+                #define column_index temp3
+                column_index = 1+(i>>1);
+                #define cell_index temp1
+                cell_index = ((((row_index&1)==0)<<1)+(i&1));
+                switch(current_line[column_index]){
                     case WALL:
                     case WATER:
-                        temp5 = current_line[temp4];
-                        
-                        if(temp2&1){
-                            temp3 = (current_line[temp4+1]&temp5)!=0;
-                            if(temp2<2){
-                                temp3 += (((prev_line[temp4+1]&temp5)!=0)<<2);
+                        #define cell_type temp4
+                        cell_type = current_line[column_index];
+                        #define same_neigbour_dirs temp2
+                        if(cell_index&1){
+                            same_neigbour_dirs = (current_line[column_index+1]&cell_type)!=0;
+                            if(cell_index<2){
+                                same_neigbour_dirs += (((prev_line[column_index+1]&cell_type)!=0)<<2);
                             }else{
-                                temp3 += ((next_line[temp4+1]==temp5)<<2);
+                                same_neigbour_dirs += ((next_line[column_index+1]==cell_type)<<2);
                             }
                         }else{
-                            temp3 = (current_line[temp4-1]&temp5)!=0;
-                            if(temp2<2){
-                                temp3 += (((prev_line[temp4-1]&temp5)!=0)<<2);
+                            same_neigbour_dirs = (current_line[column_index-1]&cell_type)!=0;
+                            if(cell_index<2){
+                                same_neigbour_dirs += (((prev_line[column_index-1]&cell_type)!=0)<<2);
                             }else{
-                                temp3 += ((next_line[temp4-1]==temp5)<<2);
+                                same_neigbour_dirs += ((next_line[column_index-1]==cell_type)<<2);
                             }
                         }
                         
-                        if(temp2<2){
-                            temp3 += (((prev_line[temp4]&temp5)!=0)<<1);
+                        if(cell_index<2){
+                            same_neigbour_dirs += (((prev_line[column_index]&cell_type)!=0)<<1);
                         }else{
-                            temp3 += ((next_line[temp4]==temp5)<<1);
+                            same_neigbour_dirs += ((next_line[column_index]==cell_type)<<1);
                         }
                         
-                        if(temp3 == 7){
+                        if(same_neigbour_dirs == 7){
                             if(rand8()&15){
-                                update_list[3+i] = (temp5 == WALL?0:0xEC);
+                                update_list[3+i] = (cell_type == WALL?0:0xEC);
                             }else{
-                                update_list[3+i] =  (temp5 == WALL?0x66:0xCC) + (rand8()&3);
+                                update_list[3+i] =  (cell_type == WALL?0x66:0xCC) + (rand8()&3);
                             }
                         }else{
-                            if(temp3>=4) temp3 -= 4;
-                            if(temp5 == WALL){
-                                update_list[3+i] = wall_tiles[(temp2<<2)+temp3];
+                            if(same_neigbour_dirs>=4) same_neigbour_dirs -= 4;
+                            if(cell_type == WALL){
+                                update_list[3+i] = wall_tiles[(cell_index<<2)+same_neigbour_dirs];
                             }else{
-                                update_list[3+i] = water_tiles[(temp2<<2)+temp3];
+                                update_list[3+i] = water_tiles[(cell_index<<2)+same_neigbour_dirs];
                             }
-                            if(temp3==1 || temp3 == 2) update_list[3+i] += (rand8()&3);
-                            else if(temp3==0 && temp5 == WALL) update_list[3+i]  += (rand8()&1);
+                            if(same_neigbour_dirs==1 || same_neigbour_dirs == 2) update_list[3+i] += (rand8()&3);
+                            else if(same_neigbour_dirs==0 && cell_type == WALL) update_list[3+i]  += (rand8()&1);
                         }
+                        #undef cell_type
+                        #undef same_neigbour_dirs
                     break;
                     case WALL_GREEN:
                     case GRASS:
-                        temp2 = grand8()&0x3F;
-                        if(temp2 > 9){
+                        #define random temp4
+                        random = rand8()&0x3F;
+                        if(random > 9){
                             update_list[3+i] = 0;
                         }else{
-                            update_list[3+i] = 0x60 + temp2;
+                            update_list[3+i] = 0x60 + random;
                         }
+                        #undef random
                     break;
                     case WALL_BIG:
-                        switch(temp2){
+                        switch(cell_index){
                             case 0:
-                                if(current_line[temp4-1] != WALL_BIG){
+                                if(current_line[column_index-1] != WALL_BIG){
                                     update_list[3+i] = 0xA4 + (rand8()&1);
                                 }else{
                                     update_list[3+i] = 0x88 + (rand8()&3);
                                 }
                             break;
                             case 1:
-                                if(current_line[temp4+1] != WALL_BIG){
+                                if(current_line[column_index+1] != WALL_BIG){
                                     update_list[3+i] = 0xA6 + (rand8()&1);
                                 }else{
                                     update_list[3+i] = 0x88 + (rand8()&3);
                                 }
                             break;
                             case 2:
-                                if(current_line[temp4-1] != WALL_BIG){
+                                if(current_line[column_index-1] != WALL_BIG){
                                     update_list[3+i] = 0x94 + (rand8()&1);
                                 }else{
                                     update_list[3+i] = 0x78 + (rand8()&3);
                                 }
                             break;
                             case 3:
-                                if(current_line[temp4+1] != WALL_BIG){
+                                if(current_line[column_index+1] != WALL_BIG){
                                     update_list[3+i] = 0x96 + (rand8()&1);
                                 }else{
                                     update_list[3+i] = 0x78 + (rand8()&3);
@@ -941,65 +951,73 @@ void scroll_screen(){
                     
                     case FOREST:
                     {
-                        temp3 = 0;
-                        switch(temp2){
+                        #define neighbour_forest_count temp2
+                        neighbour_forest_count = 0;
+                        switch(cell_index){
                             case 0:
                                 update_list[3+i] = 0x4;
-                                temp3 += current_line[temp4-1] == FOREST;
-                                temp3 += prev_line[temp4] == FOREST;
+                                neighbour_forest_count += current_line[column_index-1] == FOREST;
+                                neighbour_forest_count += prev_line[column_index] == FOREST;
                             break;
                             case 1:
                                 update_list[3+i] = 0x5;
-                                temp3 += current_line[temp4+1] == FOREST;
-                                temp3 += prev_line[temp4] == FOREST;
+                                neighbour_forest_count += current_line[column_index+1] == FOREST;
+                                neighbour_forest_count += prev_line[column_index] == FOREST;
                             break;
                             case 2:
                                 update_list[3+i] = 0x6;
-                                temp3 += current_line[temp4-1] == FOREST;
-                                temp3 += next_line[temp4] == FOREST;
+                                neighbour_forest_count += current_line[column_index-1] == FOREST;
+                                neighbour_forest_count += next_line[column_index] == FOREST;
                             break;
                             case 3:
                                 update_list[3+i] = 0x7;
-                                temp3 += current_line[temp4+1] == FOREST;
-                                temp3 += next_line[temp4] == FOREST;
+                                neighbour_forest_count += current_line[column_index+1] == FOREST;
+                                neighbour_forest_count += next_line[column_index] == FOREST;
                             break;
                         
                         }
-                        temp5 = 0;
-                        if(temp2 == ((row_index + temp4)&3)){
-                            if(temp3 == 0){
-                                temp5 = 1;
-                            }else if(temp3==1){
-                                temp5 = rand8() < 120;
+                        #define cell_can_be_cleared temp4
+                        cell_can_be_cleared = 0;
+                        if(cell_index == ((last_row_index + column_index)&3)){
+                            if(neighbour_forest_count == 0){
+                                cell_can_be_cleared = 1;
+                            }else if(neighbour_forest_count==1){
+                                cell_can_be_cleared = rand8() < 120;
                             }else{
-                                temp5 = rand8() < 60;
+                                cell_can_be_cleared = rand8() < 60;
                             }
                         }
-                        if(temp5){
-                            temp2 = grand8()&0x3F;
-                            if(temp2 > 9){
+                        if(cell_can_be_cleared){
+                            #define random temp1
+                            random = rand8()&0x3F;
+                            if(random > 9){
                                 update_list[3+i] = 0;
                             }else{
-                                update_list[3+i] = 0x60 + temp2;
+                                update_list[3+i] = 0x60 + random;
                             }
+                            #undef random
                         }else{
-                            if((temp2 < 2 && temp3 <= 1 && (rand8()&3)) || (rand8()&3) == 0){
+                            if((cell_index < 2 && neighbour_forest_count <= 1 && (rand8()&3)) || (rand8()&3) == 0){
                                 update_list[3+i] = 0xB8 + (rand8()&3);
                             } else {
                                 update_list[3+i] = 0xA8 + (rand8()&3);
                             }
                         }
+                        #undef cell_can_be_cleared
+                        #undef neighbour_forest_count
                     }                    
                     break;
                 }
+                #undef column_index
+                #undef cell_index
             }
             
-            if( (temp&1) != 0){
-                if(temp == 29){
+            if( (row_index&1) != 0){
+                if(row_index == 29){
                     for(i=0;i<8;++i){
                         update_list[38+i] = (bg_colors[current_line[1 + (i<<1)]] | (bg_colors[current_line[1 + (i<<1)+1]]<<2));
                     }
-                }else if( (temp&3) == 3 ){
+                }else if( (row_index&3) == 3 ){
                     for(i=0;i<8;++i){
                         update_list[38+i] = (bg_colors[current_line[1 + (i<<1)]] | (bg_colors[current_line[1 + (i<<1)+1]]<<2))<<4;
                     }
@@ -1012,15 +1030,21 @@ void scroll_screen(){
                 current_line[1] = WALL;
                 current_line[16] = WALL;
             }
+            
         }
-        
+    
+        SET_FREE(5);
+        SET_FREE(4);
+        SET_FREE(3);
+        SET_FREE(2);
+        SET_FREE(1);
+        #undef row_index
+        SET_FREE(0);
         scroll(0, scr);
     }
-    
 }
 
-void reset(){
-
+void reset(void){
 	craft_x[0]=78;
 	craft_y[0]=180;
 	craft_x[1]=178;
@@ -1034,6 +1058,18 @@ void reset(){
     sprite_dirs[0] = DIR_UP;
     sprite_dirs[1] = DIR_UP;
     
+    sprite_look_dirs[0] = 0;
+    sprite_look_dirs[1] = 0;
+    
+    craft_types[0] = 0;
+    craft_types[1] = 1;
+    craft_bullet_timers[0] = 0;
+    craft_bullet_timers[1] = 0;
+    
+    for(i=0; i<18; i++){
+        next_line[i] = current_line[i] = prev_line[i] = GRASS;
+    }
+    
     next_line[0] = next_line[1] = WALL;
     next_line[16] = next_line[17] = WALL;
     
@@ -1045,25 +1081,53 @@ void reset(){
     prev_line[0] = prev_line[1] = WALL;
     prev_line[16] = prev_line[17] = WALL;
     
-    next_wall = 0;
-    current_wall = 0;
-    prev_wall = 0;
+    wall_count = 50;
+    has_big_wall = 0;
+    #ifdef DEBUG
+        used_temps = 0;
+    #endif
+    
+    for(i=0; i<6; i++){
+        craft_flags[i] = 0;
+    }
+    for(i=0; i<ENEMY_BULLET_COUNT; i++){
+        craft_bullet_y[i] = 255;
+    }
+    
+    for(i=0; i<15; i++){
+        blocked[i] = 0;
+        bullet_blocked[i] = 0;
+    }
 }
 
-void tick_enemies(){
+void tick_enemies(void){
+    CHECK_FREE(5);
+    #define spawn_x temp5
+
+    CHECK_FREE(1);
+    #define move_dir temp1
+    
+    CHECK_FREE(2);
+    #define new_x temp2
+    CHECK_FREE(3);
+    #define new_y temp3
+    
+    CHECK_FREE(4);
+    #define move_reset temp4
+    
     for(i=2; i<6; i++){
         if(craft_types[i] == 255){
             if(enemy_spawn_scr == 0){
                 enemy_spawn_scr = 32 + (rand8()&31);
-                temp = rand8()&15;
-                while((blocked[0] & (1<<temp))){
-                    temp++;
-                    if(temp == 16) temp = 0;
+                spawn_x = rand8()&15;
+                while((blocked[0] & (1<<spawn_x))){
+                    spawn_x++;
+                    if(spawn_x == 16) spawn_x = 0;
                 }                    
                 
-                craft_x[i] = temp*16 + (rand8()&7);
-                craft_y[i] = 0;
-                sprite_dirs[i] = DIR_DOWN;
+                new_x = spawn_x*16 + (rand8()&7);
+                new_y = 0;
+                move_dir = DIR_DOWN;
                 sprite_look_dirs[i] = 0;
                 craft_types[i] = 1;
                 craft_flags[i] = 15;
@@ -1073,75 +1137,71 @@ void tick_enemies(){
         }
         else
         {
-            temp = (sprite_dirs[i]>0)+(sprite_look_dirs[i]>0);
-            temp2 = sprite_dirs[i];
-            temp3 = craft_x[i];
-            temp4 = craft_y[i];
+            move_dir = sprite_dirs[i];
+            new_x = craft_x[i];
+            new_y = craft_y[i];
             
-            if(temp == 1 || (frame&3) != 0){
-                if(temp2&DIR_LEFT){
-                    craft_x[i]--;
+            if((frame+i)&3){
+                if(frame&3){
+                    if(move_dir&DIR_LEFT){
+                        new_x--;
+                    }
+                    if(move_dir&DIR_RIGHT){
+                        new_x++;
+                    }
                 }
-                if(temp2&DIR_RIGHT){
-                    craft_x[i]++;
+                if((frame&3) != 1){
+                    if(move_dir&DIR_UP){
+                        new_y--;
+                    }
+                    if(move_dir&DIR_DOWN){
+                        new_y++;
+                    }
                 }
-            }
-            if(temp == 1 || (frame&3) != 1){
-                if(temp2&DIR_UP){
-                    craft_y[i]--;
-                }
-                if(temp2&DIR_DOWN){
-                    craft_y[i]++;
-                }
-            }
-            temp2 = craft_flags[i]&15;
-            if(temp2 && (frame & 7) == 0){
-                craft_flags[i]--;
-            }
-            if(((frame+i)&3) == 0 ){
-                craft_x[i] = temp3;
-                craft_y[i] = temp4;
-            } else if(temp2 == 0 || (craft_y[i] < 20 && sprite_dirs[i] == DIR_UP) || (craft_y[i] > 220 && sprite_dirs[i] == DIR_DOWN)|| isFreeIn(craft_x[i], craft_y[i]) == FALSE){
-                craft_x[i] = temp3;
-                craft_y[i] = temp4;
-                
-                temp3 = 0;
-                temp3 |= sprite_dirs[i];
-                
-                if(isFreeIn(craft_x[i], craft_y[i]-1) == FALSE){
-                    temp3 |= DIR_UP;
-                }
-                if(isFreeIn(craft_x[i], craft_y[i]+1) == FALSE){
-                    temp3 |= DIR_DOWN;
-                }
-                if(isFreeIn(craft_x[i]-1, craft_y[i]) == FALSE){
-                    temp3 |= DIR_LEFT;
-                }
-                if(isFreeIn(craft_x[i]+1, craft_y[i]) == FALSE){
-                    temp3 |= DIR_RIGHT;
+                move_reset = craft_flags[i]&15;
+                if(move_reset && (frame & 7) == 0){
+                    craft_flags[i]--;
                 }
                 
-                if(craft_y[i] < 20){
-                    temp3 |= DIR_UP;
-                }
-                if(craft_y[i] > 220){
-                    temp3 |= DIR_DOWN;
-                }
-                craft_flags[i] = (craft_flags[i]&0xF0) + 4 + (rand8()&11);
-                
-                if(temp3 == 0xF){
-                    craft_types[i] = 255;
-                    continue;
-                }else if(temp3 == 0){
-                    sprite_dirs[i] = (1<<(rand8()&3));
-                } else {
-                    temp2 = rand8()&3;
+                if(move_reset == 0 || (new_y < 20 && move_dir == DIR_UP) || (new_y > 220 && move_dir == DIR_DOWN)|| isFreeIn(new_x, new_y) == FALSE){
+                    new_x = craft_x[i];
+                    new_y = craft_y[i];
                     
-                    do{
-                        sprite_dirs[i] = (1<<(rand8()&3));
-                    }while(sprite_dirs[i]&temp3);
+                    if(isFreeIn(new_x, new_y-1) == FALSE){
+                        move_dir |= DIR_UP;
+                    }
+                    if(isFreeIn(new_x, new_y+1) == FALSE){
+                        move_dir |= DIR_DOWN;
+                    }
+                    if(isFreeIn(new_x-1, new_y) == FALSE){
+                        move_dir |= DIR_LEFT;
+                    }
+                    if(isFreeIn(new_x+1, new_y) == FALSE){
+                        move_dir |= DIR_RIGHT;
+                    }
+                    
+                    if(new_y < 20){
+                        move_dir |= DIR_UP;
+                    }
+                    if(new_y > 220){
+                        move_dir |= DIR_DOWN;
+                    }
+                    craft_flags[i] = (craft_flags[i]&0xF0) + 4 + (rand8()&11);
+                    
+                    if(move_dir == 0xF){
+                        craft_types[i] = 255;
+                        continue;
+                    }else if(move_dir == 0){
+                        move_dir = (1<<(rand8()&3));
+                    } else {
+                        move_dir = rand8()&3;
+                        
+                        do{
+                            sprite_dirs[i] = (1<<(rand8()&3));
+                        }while(sprite_dirs[i]&move_dir);
+                        move_dir = sprite_dirs[i];
+                    }
                 }
-                
             }
             if(craft_bullet_timers[i])
             {
@@ -1150,44 +1210,66 @@ void tick_enemies(){
             
             if(craft_bullet_timers[i] == 0)
             {
-                for(temp=CRAFT_BULLET_COUNT; temp < ENEMY_BULLET_COUNT; temp++){
-                    if(craft_bullet_y[temp] != 255) continue;
-                    craft_bullet_x[temp] = craft_x[i];
-                    craft_bullet_y[temp] = craft_y[i];
-                    craft_bullet_flag[temp] = sprite_dirs[i];
+                for(j=CRAFT_BULLET_COUNT; j < ENEMY_BULLET_COUNT; j++){
+                    if(craft_bullet_y[j] != 255) continue;
+                    craft_bullet_x[j] = craft_x[i];
+                    craft_bullet_y[j] = craft_y[i];
+                    craft_bullet_flag[j] = sprite_dirs[i];
                     craft_bullet_timers[i] = 64 + (rand8()&127);
                     break;
-                }   
+                }
             }
             
-            if(craft_y[i] >= MAX_Y-1 || craft_hps[i] == 0){
+            if(new_y >= MAX_Y-1 || craft_hps[i] == 0){
                 craft_types[i] = 255;
                 continue;
             }
-            for(temp2=0; temp2<2; temp2++){
-                if(craft_lives[temp2] != 0){
-                    if(craft_x[i] > craft_x[temp2]-12 && craft_x[i] < craft_x[temp2]+12 && craft_y[i] > craft_y[temp2]-12 && craft_y[i] < craft_y[temp2]+12){
-                        damage_craft(temp2, 2);
+            
+            for(j=0; j<2; j++){
+                if(craft_lives[j] != 0){
+                    if(new_x > craft_x[j]-12 && new_x < craft_x[j]+12 && new_y > craft_y[j]-12 && new_y < craft_y[j]+12){
+                        damage_craft(j, 2);
                         craft_types[i] = 255;
                         break;
                     }
                 }
             }
         }
+        
+        craft_x[i] = new_x;
+        craft_y[i] = new_y;
+        sprite_dirs[i] = move_dir;
     }
+
+    #undef move_reset
+    SET_FREE(4);
+    #undef new_y
+    SET_FREE(3);
+    #undef new_x
+    SET_FREE(2);
+    #undef move_dir
+    SET_FREE(1);
+    #undef spawn_x
+    SET_FREE(5);
 }
 
-void check_pause(){
+void check_pause(void){
+    CHECK_FREE(0);
+    #define alpha temp0
+    
+    
+    CHECK_FREE(1);
+    #define remaining_frame temp1
+    
     if((pad_poll(0)|pad_poll(1)) & PAD_START){
+        alpha = 4;
         
-        temp = 4;
-        
-        while(temp>0){
-            temp--;
-            pal_bright(temp);
+        while(alpha>0){
+            alpha--;
+            pal_bright(alpha);
             
-            temp2 = 3;
-            while(temp2--){
+            remaining_frame = 3;
+            while(remaining_frame--){
                 ppu_wait_frame();
             }
         }
@@ -1198,14 +1280,14 @@ void check_pause(){
             spr=oam_spr(100+(i<<3), 100, 0xF2+(i<<1), 3, spr);
         }
     
-        temp = 0;
+        alpha = 0;
         
-        while(temp<4){
-            temp++;
-            pal_spr_bright(temp);
+        while(alpha<4){
+            alpha++;
+            pal_spr_bright(alpha);
             
-            temp2 = 3;
-            while(temp2--){
+            remaining_frame = 3;
+            while(remaining_frame--){
                 ppu_wait_frame();
             }
         }
@@ -1216,13 +1298,13 @@ void check_pause(){
             if((pad_poll(0)|pad_poll(1)) & PAD_START) break;
         }
         
-        temp = 4;
-        while(temp>0){
-            temp--;
-            pal_spr_bright(temp);
+        alpha = 4;
+        while(alpha>0){
+            alpha--;
+            pal_spr_bright(alpha);
             
-            temp2 = 3;
-            while(temp2--){
+            remaining_frame = 3;
+            while(remaining_frame--){
                 ppu_wait_frame();
             }
         }
@@ -1230,36 +1312,41 @@ void check_pause(){
         oam_clear();
 		spr=0;
         draw_all();
-        temp = 0;
-        while(temp<4){
-            temp++;
-            pal_bright(temp);
+        alpha = 0;
+        while(alpha<4){
+            alpha++;
+            pal_bright(alpha);
             
-            temp2 = 3;
-            while(temp2--){
+            remaining_frame = 3;
+            while(remaining_frame--){
                 ppu_wait_frame();
             }
         }
         
     }
+    
+    #undef remaining_frame
+    SET_FREE(1);
+    
+    #undef alpha
+    SET_FREE(0);
 }
 
-void main(void)
-{
+void main(void){
 	init();
+    
+    reset();
     
     menu();
     
-    reset();
     oam_clear();
     while(scr!=240){
 		ppu_wait_frame();
-        temp = 146;
-        temp6 = scr > 400;
+        temp1 = 4;
         scroll_screen();
 		++frame;
 	}
-    temp6 = 0;
+    temp5 = 0;
 	craft_x[0]=78;
 	craft_y[0]=200;
 	craft_x[1]=178;
@@ -1288,19 +1375,19 @@ void main(void)
         tick_enemies();
         tick_bullets();
         draw_all();
-        temp = 255;
-        if(craft_lives[0] && temp > craft_y[0]) temp = craft_y[0];
-        if(craft_lives[1] && temp > craft_y[1]) temp = craft_y[1];
-        if(temp6){
-            temp6 = 0;
+        
+        temp1 = 0;
+        if(craft_lives[0] && craft_y[0] < 150) temp1 = 150-craft_y[0];
+        if(craft_lives[1] && craft_y[1] < 150){
+            temp2 = 150-craft_y[1];
+            if(temp2 > temp1){
+                temp1 = temp2;
+            }
         }
-        else
-        {
-            scroll_screen();
-        }
+    
+        scroll_screen();
         
         check_pause();
-        
         
 		++frame;
 	}

@@ -11,15 +11,16 @@
 	.export _scroll,_split, _split_vertical
 	.export _bank_spr,_bank_bg
 	.export _vram_read,_vram_write
-	.export _music_play,_music_stop,_music_pause
-	.export _sfx_play,_sample_play
 	.export _pad_poll,_pad_trigger,_pad_state
 	.export _rand8,_rand16,_set_rand
 	.export _vram_adr,_vram_put,_vram_fill,_vram_inc,_vram_unrle
 	.export _set_vram_update,_flush_vram_update
 	.export _memcpy,_memfill,_delay
-
-
+    
+.if FT_ENABLE
+	.export _music_play,_music_stop,_music_pause
+	.export _sfx_play,_sample_play
+.endif
 
 ;NMI handler
 
@@ -118,8 +119,9 @@ nmi:
 
 @skipNtsc:
 
+.if FT_ENABLE
 	jsr FamiToneUpdate
-
+.endif
 	pla
 	tay
 	pla
@@ -786,6 +788,7 @@ _vram_write:
 
 
 
+.if FT_ENABLE
 ;void __fastcall__ music_play(unsigned char song);
 
 _music_play=FamiToneMusicPlay
@@ -825,7 +828,7 @@ _sfx_play:
 
 _sample_play=FamiToneSamplePlay
 
-
+.endif
 
 ;unsigned char __fastcall__ pad_poll(unsigned char pad);
 
@@ -1270,4 +1273,6 @@ palBrightTable8:
 	.byte $30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30
 	.byte $30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30
 
+.if FT_ENABLE
 	.include "famitone2.s"
+.endif

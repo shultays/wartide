@@ -5,6 +5,8 @@
 FT_DPCM_OFF				= $c000		;$c000..$ffc0, 64-byte steps
 FT_SFX_STREAMS			= 4			;number of sound effects played at once, 1..4
 
+.define FT_ENABLE       0           ;enable ft
+
 .define FT_DPCM_ENABLE  1			;undefine to exclude all DMC code
 .define FT_SFX_ENABLE   1			;undefine to exclude all sound effects code
 
@@ -210,17 +212,19 @@ detectNTSC:
 	ldx #0
 	jsr _set_vram_update
 
+
+    .if FT_ENABLE
 	ldx #<music_data
 	ldy #>music_data
 	lda <NTSC_MODE
 	jsr FamiToneInit
-
+    
 	.if(FT_SFX_ENABLE)
 	ldx #<sounds_data
 	ldy #>sounds_data
 	jsr FamiToneSfxInit
 	.endif
-
+    .endif
 	lda #$fd
 	sta <RAND_SEED
 	sta <RAND_SEED+1
@@ -235,6 +239,7 @@ detectNTSC:
 
 .segment "RODATA"
 
+.if FT_ENABLE
 music_data:
 	.include "music.s"
 
@@ -243,10 +248,12 @@ sounds_data:
 	.include "sounds.s"
 	.endif
 
+.endif
+
 .segment "SAMPLES"
 
 	;.incbin "music_dpcm.bin"
-
+    
 .segment "VECTORS"
 
     .word nmi	;$fffa vblank nmi

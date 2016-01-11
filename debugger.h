@@ -15,6 +15,8 @@
 #define TIMER_SET_VAL(x, y) if(break_points_enable_val&(1<<x)) break_point_val=y;
 #define TIMER_END(x) if(break_points_enable_val&(1<<x)) { debug_info_val &=~(1<<x); break_point_val++; }
 
+#define DEBUG_SET(x) break_point_val = x
+
 #else
 
 #define TIMER_ENABLE(x)
@@ -24,5 +26,7 @@
 #define TIMER_TICK(x)
 #define TIMER_SET_VAL(x, y)
 #define TIMER_END(x)
+
+#define DEBUG_SET(x)
 
 #endif

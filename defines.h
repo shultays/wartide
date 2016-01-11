@@ -3,16 +3,16 @@
 #define HAS_DEBUGGER
 
 #define DIR_UP 1
-#define DIR_RIGHT 2
-#define DIR_DOWN 4
-#define DIR_LEFT 8
+#define DIR_DOWN 2
+#define DIR_LEFT 4
+#define DIR_RIGHT 8
 
 #define DIR_UP_RIGHT (DIR_UP | DIR_RIGHT)
 #define DIR_DOWN_RIGHT (DIR_DOWN | DIR_RIGHT)
 #define DIR_DOWN_LEFT (DIR_DOWN | DIR_LEFT)
 #define DIR_UP_LEFT (DIR_UP | DIR_LEFT)
 
-#define MAX_Y (253-16)
+#define MAX_Y (253-32)
 #define CRAFT_BULLET_COUNT 8
 #define ENEMY_BULLET_COUNT 12
 
@@ -24,7 +24,7 @@
 #define WATER 2
 #define FOREST 4
 
-const unsigned char palette[]={ 
+static const unsigned char palette[]={ 
 0x29,0x27,0x17,0x07, // mountains
 0x29,0x27,0x19,0x18, // grass, trees
 0x29,0xF,0x2D,0x3D, // menu

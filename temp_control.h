@@ -8,7 +8,10 @@ static unsigned char temp2;
 static unsigned char temp3;
 static unsigned char temp4;
 static unsigned char temp5;
+static unsigned char temp6;
+static unsigned char temp7;
 
+static unsigned int int_temp0;
 
 #ifdef DEBUG
 

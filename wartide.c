@@ -7,7 +7,6 @@
 
 #pragma bssseg(push,"ZEROPAGE")
 #pragma dataseg(push,"ZEROPAGE")
-
 static unsigned char i, j;
 
 static unsigned char craft_x[6];
@@ -55,6 +54,8 @@ static unsigned int adr = 0;
 static unsigned char next_line[18] = {GRASS};
 static unsigned char current_line[18] = {GRASS};
 static unsigned char prev_line[18] = {GRASS};
+
+static unsigned char dont_change_bg_pallette;
 
 #define IS_BLOCKED(x, y) (blocked[y>>4] & (1<<(x>>4)))
 
@@ -203,12 +204,13 @@ void init(void){
     oam_size(1);
     bank_spr(0);
     bank_bg(1);
+    DEBUG_SET(255);
+    DEBUG_SET(0);
 	pal_all(palette);
 	
 	vram_adr(NAMETABLE_A);
 	vram_unrle(menu_data);
 	
-    //pal_bg_bright(2);
 	
 	update_list[0]=NT_UPD_EOF;
 	update_list[1]=0x00;
@@ -222,11 +224,9 @@ void init(void){
     
 	set_vram_update(update_list);
 
-    //ppu_mask(172);
     
 	ppu_on_all();
     
-
 	frame=0;
 }
 void tick_bullets(void){
@@ -422,7 +422,7 @@ void tick_bullets(void){
             for(j=2; j<6; j++){
                 if(craft_types[j] != 255){
                     if(bullet_x > craft_x[j]-6 && bullet_x < craft_x[j]+6 && bullet_y > craft_y[j]-6 && bullet_y < craft_y[j]+6){
-                        if(craft_hps[i])craft_hps[i]--;
+                        if(craft_hps[j])craft_hps[j]--;
                         craft_bullet_y[i] = 255;
                         break;
                     }
@@ -474,7 +474,6 @@ void tick_bullets(void){
 
 void tick_crafts(void){
     //if(pad_poll(0)&PAD_B) TIMER_ENABLE(0);
-    
     TIMER_BEGIN(0);
     
     
@@ -694,7 +693,9 @@ void scroll_screen(void){
                 }
                 
                 wall_count -= (wall_count>>3);
-                if(wall_count>0) wall_count--;
+                
+                if(dont_change_bg_pallette) dont_change_bg_pallette--;
+                if(wall_count) wall_count--;
                 if(has_big_wall) has_big_wall--;
                 
                 if(wall_count < 2 && (rand8()<150)){
@@ -705,7 +706,12 @@ void scroll_screen(void){
                     if(has_big_wall) selected_grid = WALL;
                     else if(random < 60) selected_grid = WATER;
                     else if(random < 120) selected_grid = FOREST;
-                    else if(random < 180){
+                    else if(dont_change_bg_pallette == 0 /*&& random < 160*/){
+                        selected_grid = BUILDING;
+                        dont_change_bg_pallette = 16;
+                                            
+                        
+                    }else if(random < 200){
                         selected_grid = WALL_BIG;
                         has_big_wall = 2;
                     } else {
@@ -718,22 +724,30 @@ void scroll_screen(void){
                     
                     grid_start = 4+(rand8()&1)+(rand8()&3)+(rand8()&5);
                     grid_end = grid_start;
+                    if(selected_grid == BUILDING){
+                        if(rand8()&1){
+                            grid_start--;
+                        }else{
+                            grid_end++;
+                        }
+                    }else{
                     
-                    if(rand8()&1) grid_start--;
-                    if(rand8()&1) grid_end++;
-                    
-                    if(selected_grid != WALL_BIG){
                         if(rand8()&1) grid_start--;
                         if(rand8()&1) grid_end++;
-                    }else{
-                        if(grid_start == grid_end) (rand8()&1)?grid_end++:grid_start--;
+                        
+                        if(selected_grid != WALL_BIG){
+                            if(rand8()&1) grid_start--;
+                            if(rand8()&1) grid_end++;
+                        }else{
+                            if(grid_start == grid_end) (rand8()&1)?grid_end++:grid_start--;
+                        }
+                        
                     }
-                    
+                
                     for(i=grid_start; i<=grid_end; i++){
                         next_line[i] = selected_grid;
                         wall_count++;
                     }
-                    
                     #undef grid_start
                     #undef grid_end
                     #undef selected_grid
@@ -743,7 +757,7 @@ void scroll_screen(void){
                     if(next_line[i] == GRASS){
                         if(current_line[i] == WALL_BIG){
                             next_line[i] = WALL;
-                        }else{
+                        }else if(current_line[i] != BUILDING){
                             #define chance_to_grow temp3
                             #define grow_chance_reduction temp2
                         
@@ -825,6 +839,9 @@ void scroll_screen(void){
                     if(next_line[i] == WALL && (next_line[i-1] == WALL_BIG || next_line[i+1] == WALL_BIG)){
                         if(i==2 || i == 15) next_line[i] = GRASS;
                         else next_line[i] = WALL_BIG;
+                    }
+                    if(current_line[i] == BUILDING && dont_change_bg_pallette == 15){
+                        next_line[i] = BUILDING;
                     }
                 }
                 
@@ -1019,6 +1036,22 @@ void scroll_screen(void){
                         #undef neighbour_forest_count
                     }                    
                     break;
+                    
+                    case BUILDING:
+                        #define sprite_id temp2
+                        if(prev_line[column_index] != BUILDING){
+                            sprite_id = 0xF8;
+                        }else{
+                            sprite_id = 0xD8;
+                        }
+                        if(current_line[column_index-1] == BUILDING){
+                            sprite_id += 2;
+                        }
+                        sprite_id += (cell_index&1);
+                        if(cell_index&2) sprite_id -= 0x10;
+                        update_list[3+i] = sprite_id;
+                        #undef sprite_id
+                    break;
                 }
                 #undef column_index
                 #undef cell_index
@@ -1093,6 +1126,7 @@ void reset(void){
     prev_line[0] = prev_line[1] = WALL;
     prev_line[16] = prev_line[17] = WALL;
     
+    dont_change_bg_pallette = 14;
     wall_count = 50;
     has_big_wall = 0;
     #ifdef DEBUG
@@ -1345,6 +1379,7 @@ void check_pause(void){
     SET_FREE(0);
 }
 
+
 void main(void){
 	init();
     
@@ -1359,6 +1394,11 @@ void main(void){
         scroll_screen();
 		++frame;
 	}
+
+    pal_col(9, 0x3d);
+    pal_col(10, 0x2d);
+    pal_col(11, 0x1d);
+    
     temp5 = 0;
 	craft_x[0]=78;
 	craft_y[0]=200;

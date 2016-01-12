@@ -23,6 +23,7 @@
 #define WALL_BIG 5
 #define WATER 2
 #define FOREST 4
+#define BUILDING 8
 
 static const unsigned char palette[]={ 
 0x29,0x27,0x17,0x07, // mountains
@@ -43,6 +44,11 @@ static const unsigned char bg_colors[]={
 	1,
 	1,
     0,
+    
+    0,
+    0,
+    
+    2
 };
 
 static const char water_tiles[] = {

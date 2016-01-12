@@ -55,20 +55,11 @@ nmi:
 	sta PPU_ADDR
 	stx PPU_ADDR
 
-	.repeat 4,I
-	ldy PAL_BUF+I
-	lda (PAL_BG_PTR),y
+	.repeat 16,I
+	lda PAL_BUF+I
 	sta PPU_DATA
 	.endrepeat
 
-	.repeat 3,J
-	lda PPU_DATA			;skip background color
-	.repeat 3,I
-	ldy PAL_BUF+5+(J*4)+I
-	lda (PAL_BG_PTR),y
-	sta PPU_DATA
-	.endrepeat
-	.endrepeat
 
 	.repeat 4,J
 	lda PPU_DATA			;skip background color

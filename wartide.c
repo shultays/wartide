@@ -423,7 +423,7 @@ void tick_bullets(void){
                 if(craft_types[j] != 255){
                     if(bullet_x > craft_x[j]-6 && bullet_x < craft_x[j]+6 && bullet_y > craft_y[j]-6 && bullet_y < craft_y[j]+6){
                         if(craft_hps[j])craft_hps[j]--;
-                        craft_bullet_y[i] = 255;
+                        bullet_y = 255;
                         break;
                     }
                 }
@@ -440,8 +440,8 @@ void tick_bullets(void){
                 if(craft_lives[j] > 0){
                     if(craft_bullet_x[i] > craft_x[j]-6 && craft_bullet_x[i] < craft_x[j]+6 && craft_bullet_y[i] > craft_y[j]-6 && craft_bullet_y[i] < craft_y[j]+6){
                         if(craft_hps[i])craft_hps[i]--;
-                        craft_bullet_y[i] = 255;
-                        continue;
+                        bullet_y = 255;
+                        break;
                     }
                 }
             }

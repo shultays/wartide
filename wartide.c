@@ -56,7 +56,7 @@ static unsigned char current_line[18] = {GRASS};
 static unsigned char prev_line[18] = {GRASS};
 
 static unsigned char dont_change_bg_pallette;
-
+static unsigned char building_shift;
 #define IS_BLOCKED(x, y) (blocked[y>>4] & (1<<(x>>4)))
 
 unsigned char __fastcall__ isCellBulletFree(unsigned char i, unsigned char j){
@@ -387,7 +387,7 @@ void tick_bullets(void){
                     if((collision_edge_data & 6) == 6)
                         update_list[8] = 0xC0;
                     else if(collision_edge_data & 4)
-                        update_list[8] = 0xC4;
+                        update_list[8] = 0xB6;
                     else if(collision_edge_data & 2)
                         update_list[8] = 0xC2;
                     else 
@@ -396,7 +396,7 @@ void tick_bullets(void){
                     if((collision_edge_data & 12) == 12)
                         update_list[9] = 0xC1;
                     else if(collision_edge_data & 4)
-                        update_list[9] = 0xC5;
+                        update_list[9] = 0XB7;
                     else if(collision_edge_data & 8)
                         update_list[9] = 0xC3;
                     else 
@@ -709,8 +709,7 @@ void scroll_screen(void){
                     else if(dont_change_bg_pallette == 0 /*&& random < 160*/){
                         selected_grid = BUILDING;
                         dont_change_bg_pallette = 16;
-                                            
-                        
+                        building_shift = (rand8()&4);
                     }else if(random < 200){
                         selected_grid = WALL_BIG;
                         has_big_wall = 2;
@@ -847,9 +846,9 @@ void scroll_screen(void){
                 
                 for(i=2; i<16; i++){
                     if(current_line[i] == WALL && 
-                    ((current_line[i-1]&WALL) && (current_line[i+1]&WALL) && 
+                    ((current_line[i-1]==WALL) && (current_line[i+1]==WALL) && 
                     (next_line[i]&WALL) && (prev_line[i]&WALL) 
-                     && (next_line[i-1]&WALL) && (next_line[i+1]&WALL) 
+                     && (next_line[i-1]==WALL) && (next_line[i+1]==WALL) 
                      && (prev_line[i-1]&WALL) && (prev_line[i+1]&WALL))
                   
                     ){
@@ -917,9 +916,9 @@ void scroll_screen(void){
                         
                         if(same_neigbour_dirs == 7){
                             if(rand8()&15){
-                                update_list[3+i] = (cell_type == WALL?0:0xEC);
+                                update_list[3+i] = (cell_type == WALL?0:0xF0);
                             }else{
-                                update_list[3+i] =  (cell_type == WALL?0x66:0xCC) + (rand8()&3);
+                                update_list[3+i] =  (cell_type == WALL?0x66:0xD0) + (rand8()&3);
                             }
                         }else{
                             if(same_neigbour_dirs>=4) same_neigbour_dirs -= 4;
@@ -1040,9 +1039,9 @@ void scroll_screen(void){
                     case BUILDING:
                         #define sprite_id temp2
                         if(prev_line[column_index] != BUILDING){
-                            sprite_id = 0xF8;
+                            sprite_id = 0xF8+building_shift;
                         }else{
-                            sprite_id = 0xD8;
+                            sprite_id = 0xD8+building_shift;
                         }
                         if(current_line[column_index-1] == BUILDING){
                             sprite_id += 2;

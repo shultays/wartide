@@ -1415,6 +1415,7 @@ void main(void){
 	while(1){
 		ppu_wait_frame();
         oam_clear();
+        
 		spr=0;
         #ifdef DEBUG
             spr=oam_spr(20, wall_count, 0x79, 1, spr);

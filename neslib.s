@@ -16,11 +16,22 @@
 	.export _vram_adr,_vram_put,_vram_fill,_vram_inc,_vram_unrle
 	.export _set_vram_update,_flush_vram_update
 	.export _memcpy,_memfill,_delay
+    .export _bankswitch
     
 .if FT_ENABLE
 	.export _music_play,_music_stop,_music_pause
 	.export _sfx_play,_sample_play
 .endif
+
+
+_bankswitch:
+
+   tax
+   sta bankBytes,x
+   rts
+
+bankBytes:
+  .byte $00,$01,$02,$03
 
 ;NMI handler
 

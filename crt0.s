@@ -97,8 +97,7 @@ RLE_BYTE	=TEMP+3
 
 
 .segment "HEADER"
-
-    .byte $4e,$45,$53,$1a
+    .byte "NES", $1A
 	.byte <NES_PRG_BANKS
 	.byte <NES_CHR_BANKS
 	.byte <NES_MIRRORING|(<NES_MAPPER<<4)
@@ -265,3 +264,5 @@ sounds_data:
 .segment "CHARS"
 
 	.incbin "tileset.chr"
+	.incbin "tileset2.chr"
+

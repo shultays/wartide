@@ -1039,9 +1039,9 @@ void scroll_screen(void){
                     case BUILDING:
                         #define sprite_id temp2
                         if(prev_line[column_index] != BUILDING){
-                            sprite_id = 0xF8+building_shift;
+                            sprite_id = 0xF4+building_shift;
                         }else{
-                            sprite_id = 0xD8+building_shift;
+                            sprite_id = 0xD4+building_shift;
                         }
                         if(current_line[column_index-1] == BUILDING){
                             sprite_id += 2;
@@ -1312,7 +1312,7 @@ void check_pause(void){
         
         while(alpha>0){
             alpha--;
-            pal_bright(alpha);
+            pal_bg_bright(alpha);
             
             remaining_frame = 3;
             while(remaining_frame--){

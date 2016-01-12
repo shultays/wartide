@@ -14,6 +14,7 @@
 	.import		_pal_col
 	.import		_pal_bright
 	.import		_pal_spr_bright
+	.import		_pal_bg_bright
 	.import		_ppu_wait_frame
 	.import		_ppu_on_all
 	.import		_oam_clear
@@ -6725,22 +6726,22 @@ L0BD5:	ldy     _temp3
 	cmp     #$08
 	beq     L0BD6
 ;
-; sprite_id = 0xF8+building_shift;
+; sprite_id = 0xF4+building_shift;
 ;
 	lda     _building_shift
 	clc
-	adc     #$F8
+	adc     #$F4
 	bcc     L0BE0
 ;
 ; }else{
 ;
 	jmp     L0BE0
 ;
-; sprite_id = 0xD8+building_shift;
+; sprite_id = 0xD4+building_shift;
 ;
 L0BD6:	lda     _building_shift
 	clc
-	adc     #$D8
+	adc     #$D4
 L0BE0:	sta     _temp2
 ;
 ; if(current_line[column_index-1] == BUILDING){
@@ -8314,9 +8315,9 @@ L0E36:	lda     _temp0
 	sbc     #$01
 	sta     _temp0
 ;
-; pal_bright(alpha);
+; pal_bg_bright(alpha);
 ;
-	jsr     _pal_bright
+	jsr     _pal_bg_bright
 ;
 ; remaining_frame = 3;
 ;

@@ -14,7 +14,6 @@
 	.import		_pal_col
 	.import		_pal_bright
 	.import		_pal_spr_bright
-	.import		_pal_bg_bright
 	.import		_ppu_wait_frame
 	.import		_ppu_on_all
 	.import		_oam_clear
@@ -8315,9 +8314,9 @@ L0E36:	lda     _temp0
 	sbc     #$01
 	sta     _temp0
 ;
-; pal_bg_bright(alpha);
+; pal_bright(alpha);
 ;
-	jsr     _pal_bg_bright
+	jsr     _pal_bright
 ;
 ; remaining_frame = 3;
 ;

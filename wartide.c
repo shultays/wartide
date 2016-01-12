@@ -1312,7 +1312,7 @@ void check_pause(void){
         
         while(alpha>0){
             alpha--;
-            pal_bg_bright(alpha);
+            pal_bright(alpha);
             
             remaining_frame = 3;
             while(remaining_frame--){

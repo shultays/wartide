@@ -706,10 +706,10 @@ void scroll_screen(void){
                     if(has_big_wall) selected_grid = WALL;
                     else if(random < 60) selected_grid = WATER;
                     else if(random < 120) selected_grid = FOREST;
-                    else if(dont_change_bg_pallette == 0 /*&& random < 160*/){
+                    else if(!dont_change_bg_pallette&& random < 160){
                         selected_grid = BUILDING;
                         dont_change_bg_pallette = 16;
-                        building_shift = random>100?8:random>80?4:0;
+                        building_shift = random>126?8:random>113?4:0;
                         building_shift = 8;
                     }else if(random < 200){
                         selected_grid = WALL_BIG;

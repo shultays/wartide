@@ -709,7 +709,8 @@ void scroll_screen(void){
                     else if(dont_change_bg_pallette == 0 /*&& random < 160*/){
                         selected_grid = BUILDING;
                         dont_change_bg_pallette = 16;
-                        building_shift = (rand8()&4);
+                        building_shift = random>100?8:random>80?4:0;
+                        building_shift = 8;
                     }else if(random < 200){
                         selected_grid = WALL_BIG;
                         has_big_wall = 2;

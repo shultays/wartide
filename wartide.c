@@ -780,7 +780,6 @@ void scroll_screen(void){
             }
  
             if(row_index&1){ // build new line
-                is_update_dirty = 1;
                 if((wall_hit_y[0]&0xF) != 0xF){
                     wall_hit_y[0]++;
                 }
@@ -1586,6 +1585,7 @@ void main(void){
 		ppu_wait_frame();
         DEBUG_SET(update_list[0]);
 		spr=0;
+        oam_clear();
         #ifdef DEBUG
             spr=oam_spr(20, wall_count, 0x79, 1, spr);
             spr=oam_spr(40, has_big_wall, 0x79, 1, spr);
@@ -1601,20 +1601,20 @@ void main(void){
                 scroll_amount = temp2;
             }
         }
-    
-        scroll_screen();
-        
+        if(scroll_amount){
+            is_update_dirty = (scr&0xF)<scroll_amount;
+        }
     
         tick_crafts();
         tick_enemies();
         tick_bullets();
-        oam_clear();
         draw_all();
         
         
         
         check_pause();
         
+        scroll_screen();
         
 		++frame;
 	}

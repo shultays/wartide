@@ -1573,14 +1573,14 @@ L1021:	sta     _i
 	adc     _temp1
 	sta     _temp1
 ;
-; spr=oam_spr(i?256-20-8:20, 210, 0xA0+craft_hp_sprite, i, spr);
+; spr=oam_spr(i?256-16-8:16, 210, 0xA0+craft_hp_sprite, i, spr);
 ;
 L043A:	jsr     decsp4
 	lda     _i
 	beq     L0447
-	lda     #$E4
+	lda     #$E8
 	jmp     L0449
-L0447:	lda     #$14
+L0447:	lda     #$10
 L0449:	ldy     #$03
 	sta     (sp),y
 	lda     #$D2

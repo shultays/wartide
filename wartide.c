@@ -207,7 +207,7 @@ void draw_all(void){
             if((craft_hps[i]&1) && !(frame&16)){
                 craft_hp_sprite += 2;
             }
-            spr=oam_spr(i?256-20-8:20, 210, 0xA0+craft_hp_sprite, i, spr);
+            spr=oam_spr(i?256-16-8:16, 210, 0xA0+craft_hp_sprite, i, spr);
         }
     }
 

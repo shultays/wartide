@@ -17,7 +17,7 @@ static unsigned int int_temp0;
 
 static unsigned char used_temps = 0;
 
-#define CHECK_FREE(t) if(used_temps & (1<<t)) while(1) ppu_wait_nmi(); else used_temps |= (1<<t);
+#define CHECK_FREE(t) if(used_temps & (1<<t)) {DEBUG_SET((((unsigned char)__LINE__)%200));while(1) ppu_wait_nmi(); } else {used_temps |= (1<<t);}
 #define SET_FREE(t) used_temps &= ~(1<<t);
 
 #else

@@ -1,6 +1,8 @@
-// #define DEBUG
+//#define DEBUG
 
-#define HAS_DEBUGGER
+//#define HAS_DEBUGGER
+//#define DEBUG_COLLISONS
+
 
 #define DIR_UP 1
 #define DIR_DOWN 2
@@ -17,13 +19,15 @@
 #define ENEMY_BULLET_COUNT 12
 
 
-#define GRASS 0
-#define WALL 1
-#define WALL_GREEN 3
-#define WALL_BIG 5
-#define WATER 2
-#define FOREST 4
-#define BUILDING 8
+#define GRASS 0x0
+#define WALL 0x1
+#define WALL_GREEN 0x3
+#define WALL_BIG 0x5
+#define WATER 0x2
+#define FOREST 0x4
+#define BUILDING 0x8
+#define BUILDING_PASSABLE 0x18
+#define GRASS_EMPTY 0x20
 
 static const unsigned char palette[]={ 
 0x29,0x27,0x17,0x07, // mountains

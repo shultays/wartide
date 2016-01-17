@@ -246,7 +246,7 @@ void draw_all(void){
     SET_FREE(4);
     
         
-    for(i=0;i<6;i++){
+    for(i=5;i!=255;i--){
         if(i<2 && craft_lives[i] == 0) continue;
         if(craft_hps[i]){
             draw_tank();

@@ -1829,12 +1829,12 @@ L1188:	dey
 L0488:	inc     _i
 	jmp     L0486
 ;
-; for(i=0;i<6;i++){
+; for(i=5;i!=255;i--){
 ;
-L0487:	lda     #$00
+L0487:	lda     #$05
 L1185:	sta     _i
-	cmp     #$06
-	bcc     L1189
+	cmp     #$FF
+	bne     L1189
 ;
 ; }
 ;
@@ -2056,11 +2056,11 @@ L054D:	ldy     #$03
 	jsr     _oam_spr
 	sta     _spr
 ;
-; for(i=0;i<6;i++){
+; for(i=5;i!=255;i--){
 ;
 L04DD:	lda     _i
-	clc
-	adc     #$01
+	sec
+	sbc     #$01
 	jmp     L1185
 
 .endproc

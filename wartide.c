@@ -69,6 +69,10 @@ static unsigned char building_index_y;
 static unsigned char scroll_amount;
 static unsigned char is_update_dirty;
 
+static unsigned char explosion_x;
+static unsigned char explosion_y;
+static unsigned char explosion_state;
+
 unsigned char __fastcall__ isCellBulletFree(unsigned char i, unsigned char j){
     return !(bullet_blocked[j] & (1<<(i)));
 }
@@ -207,6 +211,22 @@ void draw_all(void){
     CHECK_FREE(5);
     #define bullet_flag temp5
     
+    if(explosion_state){
+        if(explosion_state >= 14){
+            spr = oam_meta_spr(explosion_x, explosion_y, spr, small_exp_0);
+            draw_tank();
+        }else if(explosion_state >= 12){
+            spr = oam_meta_spr(explosion_x, explosion_y, spr, small_exp_1);
+            draw_tank();
+        }else if(explosion_state >= 9){
+            spr = oam_meta_spr(explosion_x, explosion_y, spr, small_exp_2);
+        }else if(explosion_state >= 5){
+            spr = oam_meta_spr(explosion_x, explosion_y, spr, big_exp_0);
+        }else{
+            spr = oam_meta_spr(explosion_x, explosion_y, spr, big_exp_1);
+        }
+    }
+    
     for(i=0; i<ENEMY_BULLET_COUNT; ++i){
         bullet_flag = craft_bullet_flag[i];
         if(bullet_flag){
@@ -238,7 +258,7 @@ void draw_all(void){
     spr=oam_spr(sprite_to_bg_x, sprite_to_bg_y, 0x9c, 1, spr);
     #endif
     
-    #undef bullet_spr
+    #undef bullet_flag
     SET_FREE(5);
     #undef bullet_x
     SET_FREE(3);
@@ -275,7 +295,8 @@ void draw_all(void){
             spr=oam_spr(i?256-16-8:16, 210, 0xA0+craft_hp_sprite, i, spr);
         }
     }
-    
+
+            
     #undef props
     SET_FREE(2);
     #undef craft_hp_sprite
@@ -399,7 +420,9 @@ void tick_bullets(void){
                     bullet_blocked[bullet_grid_pos_y] ^= (1<<bullet_grid_pos_x);
                     blocked[bullet_grid_pos_y] ^= (1<<bullet_grid_pos_x);
                     enemy_blocked[bullet_grid_pos_y] ^= (1<<bullet_grid_pos_x);
-                    
+                    explosion_state = 15;
+                    explosion_x = (bullet_grid_pos_x<<4)+7;
+                    explosion_y = (bullet_grid_pos_y<<4)+4-(scr&15);
                     CHECK_FREE(0);
                     #define row_index_on_ns temp0
                     
@@ -428,18 +451,22 @@ void tick_bullets(void){
                             blocked[bullet_grid_pos_y] ^= (1<<(bullet_grid_pos_x+1));
                             enemy_blocked[bullet_grid_pos_y] ^= (1<<(bullet_grid_pos_x+1));
                             enemy_blocked[bullet_grid_pos_y-1] ^= (1<<(bullet_grid_pos_x+1));
+                            explosion_x += 8;
                         }else{
                             bullet_blocked[bullet_grid_pos_y] ^= (1<<(bullet_grid_pos_x-1));
                             blocked[bullet_grid_pos_y] ^= (1<<(bullet_grid_pos_x-1));
                             enemy_blocked[bullet_grid_pos_y] ^= (1<<(bullet_grid_pos_x-1));
                             enemy_blocked[bullet_grid_pos_y-1] ^= (1<<(bullet_grid_pos_x-1));
                             adr-=2;
+                            explosion_x -= 8;
                         }
                         building_index_y = 17;
                         sprite_to_bg_y = 255;
                         update_list[0]=MSB(adr)|NT_UPD_HORZ;
                         update_list[1]=LSB(adr);
                         update_list[2]=4;
+                        
+                        explosion_y -= 3;
                         
                         
                         adr += 32;
@@ -807,6 +834,13 @@ void scroll_screen(void){
                 craft_bullet_y[i] += scroll_amount;
             }
         }
+        if(explosion_state){
+            if(explosion_y > 255 - scroll_amount){
+                explosion_y = 255;
+            }else{
+                explosion_y += scroll_amount;
+            }
+        }
         scr -= scroll_amount;
         if(scr<0) scr+=240*2;
         if(sprite_to_bg_y<255-scroll_amount) sprite_to_bg_y+=scroll_amount;
@@ -882,7 +916,7 @@ void scroll_screen(void){
                     if(has_big_wall) selected_grid = WALL;
                     else if(random < 60) selected_grid = WATER;
                     else if(random < 120) selected_grid = FOREST;
-                    else if(!dont_change_bg_pallette && row_index != 29 && random < 160){
+                    else if(!dont_change_bg_pallette && row_index != 29 && row_index != 0 && random < 165){
                         selected_grid = BUILDING;
                         dont_change_bg_pallette = 16;
                         building_shift = random>126?8:random>113?4:0;
@@ -1342,6 +1376,7 @@ void reset(void){
     
     enemy_spawn_scr = 10;
     
+    explosion_state = 0;
     
     for(i=0; i<18; i++){
         next_line[i] = current_line[i] = prev_line[i] = GRASS;
@@ -1475,6 +1510,7 @@ void tick_enemies(void){
                     
                     if(move_dir == 0xF){
                         craft_hps[i] = 0;
+                        craft_bullet_timers[i] = 0;
                         continue;
                     }else if(move_dir == 0){
                         move_dir = (1<<(rand8()&3));
@@ -1670,7 +1706,9 @@ void main(void){
         if(scroll_amount){
             is_update_dirty = (scr&0xF)<scroll_amount;
         }
-    
+        if(explosion_state && (frame&1)){
+            explosion_state--;
+        }
         tick_crafts();
         tick_enemies();
         tick_bullets();

@@ -24,6 +24,9 @@ static unsigned char spr;
 static unsigned char frame;
 
 static unsigned char update_list[3+32+3+8+1];//3 bytes address and length for 32 tiles, 3 bytes address and length for 8 attributes, end marker
+#define update_list_begin (update_list+3)
+#define update_list_color_begin (update_list+38)
+
 
 static unsigned char sprite_dirs[6] = {DIR_UP, DIR_UP, DIR_DOWN, DIR_DOWN, DIR_DOWN, DIR_DOWN};
 static unsigned char sprite_look_dirs[6] = {0, 0, 0, 0, 0, 0};
@@ -808,6 +811,8 @@ void scroll_screen(void){
         CHECK_FREE(3);
         CHECK_FREE(4);
         CHECK_FREE(5);
+        CHECK_FREE(7);
+        #define scroll_temp temp7
     
         
         CHECK_FREE(0);
@@ -1136,14 +1141,14 @@ void scroll_screen(void){
                 
                 #ifdef DEBUG_COLLISONS
                 if(current_line[column_index] == GRASS){
-                    update_list[3+i] = 0x00;
+                    scroll_temp = 0x00;
                 }else{
-                    update_list[3+i] = 0xF0;
+                    scroll_temp = 0xF0;
                 }
                 #else
                 switch(current_line[column_index]){
                     case GRASS_EMPTY:
-                        update_list[3+i] = 0;
+                        scroll_temp = 0;
                     break;
                     case WALL:
                     case WATER:
@@ -1174,19 +1179,19 @@ void scroll_screen(void){
                         
                         if(same_neigbour_dirs == 7){
                             if(rand8()&15){
-                                update_list[3+i] = (cell_type == WALL?0:0xF0);
+                                scroll_temp = (cell_type == WALL?0:0xF0);
                             }else{
-                                update_list[3+i] =  (cell_type == WALL?0x66:0xD0) + (rand8()&3);
+                                scroll_temp =  (cell_type == WALL?0x66:0xD0) + (rand8()&3);
                             }
                         }else{
                             if(same_neigbour_dirs>=4) same_neigbour_dirs -= 4;
                             if(cell_type == WALL){
-                                update_list[3+i] = wall_tiles[(cell_index<<2)+same_neigbour_dirs];
+                                scroll_temp = wall_tiles[(cell_index<<2)+same_neigbour_dirs];
                             }else{
-                                update_list[3+i] = water_tiles[(cell_index<<2)+same_neigbour_dirs];
+                                scroll_temp = water_tiles[(cell_index<<2)+same_neigbour_dirs];
                             }
-                            if(same_neigbour_dirs==1 || same_neigbour_dirs == 2) update_list[3+i] += (rand8()&3);
-                            else if(same_neigbour_dirs==0 && cell_type == WALL) update_list[3+i]  += (rand8()&1);
+                            if(same_neigbour_dirs==1 || same_neigbour_dirs == 2) scroll_temp += (rand8()&3);
+                            else if(same_neigbour_dirs==0 && cell_type == WALL) scroll_temp  += (rand8()&1);
                         }
                         #undef cell_type
                         #undef same_neigbour_dirs
@@ -1196,9 +1201,9 @@ void scroll_screen(void){
                         #define random temp4
                         random = rand8()&0x3F;
                         if(random > 9){
-                            update_list[3+i] = 0;
+                            scroll_temp = 0;
                         }else{
-                            update_list[3+i] = 0x60 + random;
+                            scroll_temp = 0x60 + random;
                         }
                         #undef random
                     break;
@@ -1206,30 +1211,30 @@ void scroll_screen(void){
                         switch(cell_index){
                             case 0:
                                 if(current_line[column_index-1] != WALL_BIG){
-                                    update_list[3+i] = 0xA4 + (rand8()&1);
+                                    scroll_temp = 0xA4 + (rand8()&1);
                                 }else{
-                                    update_list[3+i] = 0x88 + (rand8()&3);
+                                    scroll_temp = 0x88 + (rand8()&3);
                                 }
                             break;
                             case 1:
                                 if(current_line[column_index+1] != WALL_BIG){
-                                    update_list[3+i] = 0xA6 + (rand8()&1);
+                                    scroll_temp = 0xA6 + (rand8()&1);
                                 }else{
-                                    update_list[3+i] = 0x88 + (rand8()&3);
+                                    scroll_temp = 0x88 + (rand8()&3);
                                 }
                             break;
                             case 2:
                                 if(current_line[column_index-1] != WALL_BIG){
-                                    update_list[3+i] = 0x94 + (rand8()&1);
+                                    scroll_temp = 0x94 + (rand8()&1);
                                 }else{
-                                    update_list[3+i] = 0x78 + (rand8()&3);
+                                    scroll_temp = 0x78 + (rand8()&3);
                                 }
                             break;
                             case 3:
                                 if(current_line[column_index+1] != WALL_BIG){
-                                    update_list[3+i] = 0x96 + (rand8()&1);
+                                    scroll_temp = 0x96 + (rand8()&1);
                                 }else{
-                                    update_list[3+i] = 0x78 + (rand8()&3);
+                                    scroll_temp = 0x78 + (rand8()&3);
                                 }
                             break;
                         }
@@ -1241,22 +1246,22 @@ void scroll_screen(void){
                         neighbour_forest_count = 0;
                         switch(cell_index){
                             case 0:
-                                update_list[3+i] = 0x4;
+                                scroll_temp = 0x4;
                                 neighbour_forest_count += current_line[column_index-1] == FOREST;
                                 neighbour_forest_count += prev_line[column_index] == FOREST;
                             break;
                             case 1:
-                                update_list[3+i] = 0x5;
+                                scroll_temp = 0x5;
                                 neighbour_forest_count += current_line[column_index+1] == FOREST;
                                 neighbour_forest_count += prev_line[column_index] == FOREST;
                             break;
                             case 2:
-                                update_list[3+i] = 0x6;
+                                scroll_temp = 0x6;
                                 neighbour_forest_count += current_line[column_index-1] == FOREST;
                                 neighbour_forest_count += next_line[column_index] == FOREST;
                             break;
                             case 3:
-                                update_list[3+i] = 0x7;
+                                scroll_temp = 0x7;
                                 neighbour_forest_count += current_line[column_index+1] == FOREST;
                                 neighbour_forest_count += next_line[column_index] == FOREST;
                             break;
@@ -1277,16 +1282,16 @@ void scroll_screen(void){
                             #define random temp1
                             random = rand8()&0x3F;
                             if(random > 9){
-                                update_list[3+i] = 0;
+                                scroll_temp = 0;
                             }else{
-                                update_list[3+i] = 0x60 + random;
+                                scroll_temp = 0x60 + random;
                             }
                             #undef random
                         }else{
                             if((cell_index < 2 && neighbour_forest_count <= 1 && (rand8()&3)) || (rand8()&3) == 0){
-                                update_list[3+i] = 0xB8 + (rand8()&3);
+                                scroll_temp = 0xB8 + (rand8()&3);
                             } else {
-                                update_list[3+i] = 0xA8 + (rand8()&3);
+                                scroll_temp = 0xA8 + (rand8()&3);
                             }
                         }
                         #undef cell_can_be_cleared
@@ -1307,27 +1312,29 @@ void scroll_screen(void){
                         }
                         sprite_id += (cell_index&1);
                         if(cell_index&2) sprite_id -= 0x10;
-                        update_list[3+i] = sprite_id;
+                        scroll_temp = sprite_id;
                         #undef sprite_id
                     break;
                 }
                 #endif
                 #undef column_index
                 #undef cell_index
+                update_list_begin[i] = scroll_temp;
             }
+            
             
             if( (row_index&1) != 0){
                 if(row_index == 29){
                     for(i=0;i<8;++i){
-                        update_list[38+i] = (bg_colors[current_line[1 + (i<<1)]&0xF] | ((bg_colors[current_line[1 + (i<<1)+1]&0xF])<<2));
+                        update_list_color_begin[i] = (bg_colors[current_line[1 + (i<<1)]&0xF] | ((bg_colors[current_line[1 + (i<<1)+1]&0xF])<<2));
                     }
                 }else if( (row_index&3) == 3 ){
                     for(i=0;i<8;++i){
-                        update_list[38+i] = (bg_colors[current_line[1 + (i<<1)]&0xF] | ((bg_colors[current_line[1 + (i<<1)+1]&0xF])<<2))<<4;
+                        update_list_color_begin[i] = (bg_colors[current_line[1 + (i<<1)]&0xF] | ((bg_colors[current_line[1 + (i<<1)+1]&0xF])<<2))<<4;
                     }
                 }else{
                     for(i=0;i<8;++i){
-                        update_list[38+i] += (bg_colors[current_line[1 + (i<<1)]&0xF] | ((bg_colors[current_line[1 + (i<<1)+1]&0xF])<<2));
+                        update_list_color_begin[i] += (bg_colors[current_line[1 + (i<<1)]&0xF] | ((bg_colors[current_line[1 + (i<<1)+1]&0xF])<<2));
                     }
                 }
             } else {
@@ -1337,6 +1344,8 @@ void scroll_screen(void){
             
         }
     
+        #undef scroll_temp
+        SET_FREE(7);
         SET_FREE(5);
         SET_FREE(4);
         SET_FREE(3);

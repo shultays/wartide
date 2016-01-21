@@ -269,7 +269,7 @@ void draw_all(void){
     SET_FREE(4);
     
         
-    for(i=5;i!=255;i--){
+    for(i=5;i!=255;--i){
         if(i<2 && craft_lives[i] == 0) continue;
         if(craft_hps[i]){
             draw_tank();
@@ -417,7 +417,7 @@ void tick_bullets(void){
                 #ifndef DEBUG_COLLISONS
                 
                 if(is_update_dirty == 0){
-                    wall_hit_hp[i&1]--;
+                    --wall_hit_hp[i&1];
                 }
                 if(wall_hit_hp[i&1] == 0 && bullet_grid_pos_x != 0 && bullet_grid_pos_x != 15){
                     bullet_blocked[bullet_grid_pos_y] ^= (1<<bullet_grid_pos_x);
@@ -434,7 +434,7 @@ void tick_bullets(void){
                     
                     #ifndef DEBUG_COLLISONS
                     row_index_on_ns = last_row_index;
-                    if(row_index_on_ns&1) row_index_on_ns--;
+                    if(row_index_on_ns&1) --row_index_on_ns;
                     row_index_on_ns +=(bullet_grid_pos_y<<1);
                     
                     if(row_index_on_ns>=60) row_index_on_ns-=60;
@@ -468,9 +468,6 @@ void tick_bullets(void){
                         update_list[0]=MSB(adr)|NT_UPD_HORZ;
                         update_list[1]=LSB(adr);
                         update_list[2]=4;
-                        
-                        explosion_y -= 3;
-                        
                         
                         adr += 32;
                         update_list[7]=MSB(adr)|NT_UPD_HORZ;
@@ -606,10 +603,10 @@ void tick_bullets(void){
                 continue;
             }
             
-            for(j=2; j<6; j++){
+            for(j=2; j<6; ++j){
                 if(craft_hps[j]){
                     if(bullet_x > craft_x[j]-6 && bullet_x < craft_x[j]+6 && bullet_y > craft_y[j]-6 && bullet_y < craft_y[j]+6){
-                        if(craft_hps[j])craft_hps[j]--;
+                        if(craft_hps[j]) --craft_hps[j];
                         if(craft_hps[j] == 0) craft_bullet_timers[j] = 0xF;
                         craft_bullet_flag[i] = 0xA0;
                         break;
@@ -624,10 +621,10 @@ void tick_bullets(void){
                 craft_bullet_flag[i] = 0xA0;
                 continue;
             }
-            for(j=0; j<2; j++){
+            for(j=0; j<2; ++j){
                 if(craft_lives[j] > 0){
                     if(craft_bullet_x[i] > craft_x[j]-6 && craft_bullet_x[i] < craft_x[j]+6 && craft_bullet_y[i] > craft_y[j]-6 && craft_bullet_y[i] < craft_y[j]+6){
-                        if(craft_hps[j])craft_hps[j]--;
+                        if(craft_hps[j]) --craft_hps[j];
                         if(craft_hps[j] == 0) craft_bullet_timers[j] = 0xF;
                         craft_bullet_flag[i] = 0xA0;
                         break;
@@ -683,10 +680,10 @@ void tick_crafts(void){
       
         if(craft_hps[i] == 0){
             if(craft_bullet_timers[i]){
-                if((frame&3) == 0) craft_bullet_timers[i]--;
+                if((frame&3) == 0) --craft_bullet_timers[i];
             } else{
                 craft_hps[i] = 8;
-                craft_lives[i]--;
+                --craft_lives[i];
                 craft_y[i]=200;
                 if(i==0){
                     craft_x[0]=78;
@@ -701,14 +698,14 @@ void tick_crafts(void){
         sprite_look_dirs[i] = 0;
         move_amount = 0;
         if(pad&PAD_LEFT){
-            move_amount++;
+            ++move_amount;
             if((pad&(PAD_UP|PAD_DOWN)) && sprite_dirs[i] != DIR_LEFT && sprite_dirs[i] != DIR_RIGHT){
                 sprite_look_dirs[i] = DIR_LEFT;
             }else{
                 sprite_dirs[i] = DIR_LEFT;
             }
         } else if(pad&PAD_RIGHT){
-            move_amount++;
+            ++move_amount;
             if((pad&(PAD_UP|PAD_DOWN)) && sprite_dirs[i] != DIR_LEFT && sprite_dirs[i] != DIR_RIGHT){
                 sprite_look_dirs[i] = DIR_RIGHT;
             }else{
@@ -717,14 +714,14 @@ void tick_crafts(void){
         } 
         
         if(pad&PAD_UP){
-            move_amount++;
+            ++move_amount;
             if((pad&(PAD_LEFT|PAD_RIGHT)) && sprite_dirs[i] != DIR_UP && sprite_dirs[i] != DIR_DOWN){
                 sprite_look_dirs[i] = DIR_LEFT;
             }else{
                 sprite_dirs[i] = DIR_UP;
             }
         } else if(pad&PAD_DOWN){
-            move_amount++;
+            ++move_amount;
             if((pad&(PAD_LEFT|PAD_RIGHT)) && sprite_dirs[i] != DIR_UP && sprite_dirs[i] != DIR_DOWN){
                 sprite_look_dirs[i] = DIR_RIGHT;
             }else{
@@ -743,25 +740,25 @@ void tick_crafts(void){
                     collision_temp_2 = new_y + (scr&15);
                     
                     if(!((blocked[(collision_temp_2+8-COLLISION_THRESHOLD)>>4] & int_temp0) || (blocked[(collision_temp_2-7+COLLISION_THRESHOLD)>>4]& int_temp0))){
-                        new_x--;
+                        --new_x;
                     }
                 } else if(pad&PAD_RIGHT) {
                     int_temp0 = (((unsigned int)1)<<(new_x+8-COLLISION_THRESHOLD>>4));
                     collision_temp_2 = new_y + (scr&15);
                     
                     if(!((blocked[(collision_temp_2+8-COLLISION_THRESHOLD)>>4] & int_temp0) || (blocked[(collision_temp_2-7+COLLISION_THRESHOLD)>>4]& int_temp0))){
-                        new_x++;
+                        ++new_x;
                     }
                 }
             }
             if(move_amount == 1 || (frame&3)){
                 if(pad&PAD_UP){
                     if(!((blocked[new_y-8+COLLISION_THRESHOLD+(scr&15)>>4] & ((1<<((new_x-8+COLLISION_THRESHOLD)>>4))|(1<<((new_x+7-COLLISION_THRESHOLD)>>4)))))){
-                        new_y--;
+                        --new_y;
                     }
                 } else if(pad&PAD_DOWN) {
                     if(!((blocked[new_y+9-COLLISION_THRESHOLD+(scr&15)>>4] & ((1<<((new_x-8+COLLISION_THRESHOLD)>>4))|(1<<((new_x+7-COLLISION_THRESHOLD)>>4)))))){
-                        new_y++;
+                        ++new_y;
                     }
                 }
             }
@@ -880,10 +877,10 @@ void scroll_screen(void){
  
             if(row_index&1){ // build new line
                 if((wall_hit_y[0]&0xF) != 0xF){
-                    wall_hit_y[0]++;
+                    ++wall_hit_y[0];
                 }
                 if((wall_hit_y[1]&0xF) != 0xF){
-                    wall_hit_y[1]++;
+                    ++wall_hit_y[1];
                 }
                 
                 if((wall_hit_y[0]&0xF0) != 0xF0){
@@ -893,7 +890,7 @@ void scroll_screen(void){
                     wall_hit_y[1]+=0x10;
                 }
             
-                for(i=2; i<16; i++){
+                for(i=2; i<16; ++i){
                     prev_line[i] = current_line[i];
                     current_line[i] = next_line[i];
                     if(i==2 || i==15){
@@ -908,10 +905,10 @@ void scroll_screen(void){
                 
                 wall_count -= (wall_count>>3);
                 
-                if(building_index_y<17) building_index_y++;
-                if(dont_change_bg_pallette) dont_change_bg_pallette--;
-                if(wall_count) wall_count--;
-                if(has_big_wall) has_big_wall--;
+                if(building_index_y<17) ++building_index_y;
+                if(dont_change_bg_pallette) --dont_change_bg_pallette;
+                if(wall_count) --wall_count;
+                if(has_big_wall) --has_big_wall;
                 
                 if(wall_count < 2 && (rand8()<150)){
                     wall_count = 0;
@@ -939,47 +936,48 @@ void scroll_screen(void){
                     
                     grid_start = 4+(rand8()&1)+(rand8()&3)+(rand8()&5);
                     grid_end = grid_start;
+                    scroll_temp = rand8();
                     if(selected_grid == BUILDING){
-                        if(rand8()&1){
-                            grid_start--;
+                        if(scroll_temp&1){
+                            --grid_start;
                         }else{
-                            grid_end++;
+                            ++grid_end;
                         }
                         
                         building_index_x = grid_start-1;
                         sprite_to_bg_x = (grid_start<<4)-24;
                     }else{
                     
-                        if(rand8()&1) grid_start--;
-                        if(rand8()&1) grid_end++;
+                        if(scroll_temp&1) --grid_start;
+                        if(scroll_temp&2) ++grid_end;
                         
                         if(selected_grid != WALL_BIG){
-                            if(rand8()&1) grid_start--;
-                            if(rand8()&1) grid_end++;
+                            if(scroll_temp&4) --grid_start;
+                            if(scroll_temp&8) ++grid_end;
                         }else{
-                            if(grid_start == grid_end) (rand8()&1)?grid_end++:grid_start--;
+                            if(grid_start == grid_end) (scroll_temp&16)?++grid_end:--grid_start;
                             if(grid_start == 2){
-                                grid_start++; 
-                                grid_end++;
+                                ++grid_start; 
+                                ++grid_end;
                             }
                             if(grid_start == 15){
-                                grid_start--; 
-                                grid_end--;
+                                --grid_start; 
+                                --grid_end;
                             }
                         }
                         
                     }
                 
-                    for(i=grid_start; i<=grid_end; i++){
+                    for(i=grid_start; i<=grid_end; ++i){
                         next_line[i] = selected_grid;
-                        wall_count++;
+                        ++wall_count;
                     }
                     #undef grid_start
                     #undef grid_end
                     #undef selected_grid
                 }
                 
-                for(i=2; i<16; i++){
+                for(i=2; i<16; ++i){
                     if(next_line[i] == GRASS){
                         if(current_line[i] == WALL_BIG){
                             next_line[i] = WALL;
@@ -1002,13 +1000,14 @@ void scroll_screen(void){
                                 chance_to_grow = 0;
                             }
                             
+                            scroll_temp = rand8();
                             if(chance_to_grow >= 4){
                                 next_line[i] = WALL;
-                                wall_count++;
+                                ++wall_count;
                             }else if(chance_to_grow >= 2){
-                                if(rand8()&1){
+                                if(scroll_temp&1){
                                     next_line[i] = WALL;
-                                    wall_count++;
+                                    ++wall_count;
                                 }
                             }
                             
@@ -1026,11 +1025,11 @@ void scroll_screen(void){
                             }
                             if(chance_to_grow >= 5){
                                 next_line[i] = WATER;
-                                wall_count++;
+                                ++wall_count;
                             }else if(chance_to_grow >= 3){
-                                if(rand8()&3){
+                                if(scroll_temp&6){
                                     next_line[i] = WATER;
-                                    wall_count++;
+                                    ++wall_count;
                                 }
                             }
                             
@@ -1047,11 +1046,11 @@ void scroll_screen(void){
                             }
                             if(chance_to_grow >= 5){
                                 next_line[i] = FOREST;
-                                wall_count++;
+                                ++wall_count;
                             }else if(chance_to_grow >= 3){
-                                if(rand8()&3){
+                                if(scroll_temp&24){
                                     next_line[i] = FOREST;
-                                    wall_count++;
+                                    ++wall_count;
                                 }
                             }
                             
@@ -1061,7 +1060,7 @@ void scroll_screen(void){
                     }
                 }
                 
-                for(i=2; i<16; i++){
+                for(i=2; i<16; ++i){
                     if(next_line[i] == WALL && (next_line[i-1] == WALL_BIG || next_line[i+1] == WALL_BIG)){
                         if(i==2 || i == 15) next_line[i] = GRASS;
                         else next_line[i] = WALL_BIG;
@@ -1074,7 +1073,7 @@ void scroll_screen(void){
                     }
                 }
                 
-                for(i=2; i<16; i++){
+                for(i=2; i<16; ++i){
                     
                     if(current_line[i] == GRASS && (
                         (current_line[i+1]&BUILDING_PASSABLE) || 
@@ -1110,7 +1109,7 @@ void scroll_screen(void){
                 }
                 
                 
-                for(i=14; i>0; i--){
+                for(i=14; i>0; --i){
                     blocked[i] = blocked[i-1];
                     enemy_blocked[i] = enemy_blocked[i-1];
                     bullet_blocked[i] = bullet_blocked[i-1];
@@ -1118,7 +1117,7 @@ void scroll_screen(void){
                 blocked[0] = 0;
                 bullet_blocked[0] = 0;
                 enemy_blocked[0] = 0;
-                for(i=0; i<16; i++){
+                for(i=0; i<16; ++i){
                     if(current_line[i+1] != GRASS && current_line[i+1] != GRASS_EMPTY /*&& current_line[i+1] != BUILDING_PASSABLE*/){
                         if(current_line[i+1] != BUILDING_PASSABLE){
                             blocked[0] |= (1<<i);
@@ -1133,7 +1132,7 @@ void scroll_screen(void){
                 }
             }
             
-            for(i=0; i<32; i++){
+            for(i=0; i<32; ++i){
                 #define column_index temp3
                 column_index = 1+(i>>1);
                 #define cell_index temp1
@@ -1326,15 +1325,19 @@ void scroll_screen(void){
             if( (row_index&1) != 0){
                 if(row_index == 29){
                     for(i=0;i<8;++i){
-                        update_list_color_begin[i] = (bg_colors[current_line[1 + (i<<1)]&0xF] | ((bg_colors[current_line[1 + (i<<1)+1]&0xF])<<2));
+                        scroll_temp = (bg_colors[current_line[1 + (i<<1)]&0xF] | ((bg_colors[current_line[1 + (i<<1)+1]&0xF])<<2));
+                        update_list_color_begin[i] = scroll_temp;
                     }
                 }else if( (row_index&3) == 3 ){
                     for(i=0;i<8;++i){
-                        update_list_color_begin[i] = (bg_colors[current_line[1 + (i<<1)]&0xF] | ((bg_colors[current_line[1 + (i<<1)+1]&0xF])<<2))<<4;
+                        scroll_temp = (bg_colors[current_line[1 + (i<<1)]&0xF] | ((bg_colors[current_line[1 + (i<<1)+1]&0xF])<<2))<<4;
+                        update_list_color_begin[i] = scroll_temp;
                     }
                 }else{
                     for(i=0;i<8;++i){
-                        update_list_color_begin[i] += (bg_colors[current_line[1 + (i<<1)]&0xF] | ((bg_colors[current_line[1 + (i<<1)+1]&0xF])<<2));
+                        scroll_temp = update_list_color_begin[i];
+                        scroll_temp += (bg_colors[current_line[1 + (i<<1)]&0xF] | ((bg_colors[current_line[1 + (i<<1)+1]&0xF])<<2));
+                        update_list_color_begin[i] = scroll_temp;
                     }
                 }
             } else {
@@ -1372,7 +1375,7 @@ void reset(void){
     sprite_look_dirs[0] = 0;
     sprite_look_dirs[1] = 0;
     
-    for(i=0; i<6; i++){
+    for(i=0; i<6; ++i){
         craft_bullet_timers[i] = 0;
         craft_types[i] = 0;
         craft_hps[i] = 0;
@@ -1387,7 +1390,7 @@ void reset(void){
     
     explosion_state = 0;
     
-    for(i=0; i<18; i++){
+    for(i=0; i<18; ++i){
         next_line[i] = current_line[i] = prev_line[i] = GRASS;
     }
     
@@ -1417,14 +1420,14 @@ void reset(void){
         break_points_enable_val = 0;
     #endif
     
-    for(i=0; i<6; i++){
+    for(i=0; i<6; ++i){
         craft_flags[i] = 0;
     }
-    for(i=0; i<ENEMY_BULLET_COUNT; i++){
+    for(i=0; i<ENEMY_BULLET_COUNT; ++i){
         craft_bullet_flag[i] = 0;
     }
     
-    for(i=0; i<15; i++){
+    for(i=0; i<15; ++i){
         blocked[i] = 0;
         bullet_blocked[i] = 0;
         enemy_blocked[i] = 0;
@@ -1443,16 +1446,16 @@ void tick_enemies(void){
     CHECK_FREE(4);
     #define move_reset temp4
     
-    for(i=2; i<6; i++){
+    for(i=2; i<6; ++i){
         if(!craft_hps[i]){
             if(craft_bullet_timers[i]){
-                if(frame&1) craft_bullet_timers[i]--;
+                if(frame&1) --craft_bullet_timers[i];
                 continue;
             }else if(enemy_spawn_scr == 0){
                 enemy_spawn_scr = 32 + (rand8()&31);
                 spawn_x = rand8()&15;
                 while((enemy_blocked[0] & (1<<spawn_x))){
-                    spawn_x++;
+                    ++spawn_x;
                     if(spawn_x == 16) spawn_x = 0;
                 }                    
                 
@@ -1473,23 +1476,23 @@ void tick_enemies(void){
             if((frame+i)&3){
                 if(frame&3){
                     if(move_dir&DIR_LEFT){
-                        new_x--;
+                        --new_x;
                     }
                     if(move_dir&DIR_RIGHT){
-                        new_x++;
+                        ++new_x;
                     }
                 }
                 if((frame&3) != 1){
                     if(move_dir&DIR_UP){
-                        new_y--;
+                        --new_y;
                     }
                     if(move_dir&DIR_DOWN){
-                        new_y++;
+                        ++new_y;
                     }
                 }
                 move_reset = craft_flags[i]&15;
                 if(move_reset && (frame & 7) == 0){
-                    craft_flags[i]--;
+                    ++craft_flags[i];
                 }
                 
                 if(move_reset == 0 || (new_y < 20 && move_dir == DIR_UP) || (new_y > 220 && move_dir == DIR_DOWN)|| isFreeEnemy(new_x, new_y) == FALSE){
@@ -1535,7 +1538,7 @@ void tick_enemies(void){
             }
             
             if(craft_bullet_timers[i] == 0) {
-                for(j=CRAFT_BULLET_COUNT; j < ENEMY_BULLET_COUNT; j++){
+                for(j=CRAFT_BULLET_COUNT; j < ENEMY_BULLET_COUNT; ++j){
                     if(craft_bullet_flag[j]) continue;
                     craft_bullet_x[j] = new_x;
                     craft_bullet_y[j] = new_y;
@@ -1544,7 +1547,7 @@ void tick_enemies(void){
                     break;
                 }
             } else {
-                craft_bullet_timers[i]--;
+                --craft_bullet_timers[i];
             }
             
             if(new_y >= MAX_Y+8 || craft_hps[i] == 0){
@@ -1553,7 +1556,7 @@ void tick_enemies(void){
                 continue;
             }
             
-            for(j=0; j<2; j++){
+            for(j=0; j<2; ++j){
                 if(craft_lives[j] != 0){
                     if(new_x > craft_x[j]-12 && new_x < craft_x[j]+12 && new_y > craft_y[j]-12 && new_y < craft_y[j]+12){
                         if(craft_hps[j]>2){
@@ -1600,29 +1603,29 @@ void check_pause(void){
         alpha = 4;
         
         while(alpha>0){
-            alpha--;
+            --alpha;
             pal_bright(alpha);
             
-            remaining_frame = 3;
-            while(remaining_frame--){
+            remaining_frame = 4;
+            while(--remaining_frame){
                 ppu_wait_frame();
             }
         }
         
         oam_clear();
 		spr=0;
-        for(i=0; i<7; i++){
+        for(i=0; i<7; ++i){
             spr=oam_spr(100+(i<<3), 100, 0xF2+(i<<1), 3, spr);
         }
     
         alpha = 0;
         
         while(alpha<4){
-            alpha++;
+            ++alpha;
             pal_spr_bright(alpha);
             
-            remaining_frame = 3;
-            while(remaining_frame--){
+            remaining_frame = 4;
+            while(--remaining_frame){
                 ppu_wait_frame();
             }
         }
@@ -1634,12 +1637,12 @@ void check_pause(void){
         }
         
         alpha = 4;
-        while(alpha>0){
-            alpha--;
+        while(alpha){
+            --alpha;
             pal_spr_bright(alpha);
             
-            remaining_frame = 3;
-            while(remaining_frame--){
+            remaining_frame = 4;
+            while(--remaining_frame){
                 ppu_wait_frame();
             }
         }
@@ -1649,11 +1652,11 @@ void check_pause(void){
         draw_all();
         alpha = 0;
         while(alpha<4){
-            alpha++;
+            ++alpha;
             pal_bright(alpha);
             
-            remaining_frame = 3;
-            while(remaining_frame--){
+            remaining_frame = 4;
+            while(--remaining_frame){
                 ppu_wait_frame();
             }
         }
@@ -1716,7 +1719,7 @@ void main(void){
             is_update_dirty = (scr&0xF)<scroll_amount;
         }
         if(explosion_state && (frame&1)){
-            explosion_state--;
+            --explosion_state;
         }
         tick_crafts();
         tick_enemies();

@@ -326,7 +326,6 @@ void init(void){
 
 	update_list[46]=NT_UPD_EOF;
     
-	set_vram_update(update_list);
 
     
 	ppu_on_all();
@@ -590,7 +589,8 @@ void tick_bullets(void){
                     wall_hit_x[i&1] <<= 4;
                     wall_hit_y[i&1] <<= 4;
                     
-                                    
+                                            
+                    set_vram_update(update_list);
                     #undef collision_edge_data
                     SET_FREE(5);
                     
@@ -1345,6 +1345,7 @@ void scroll_screen(void){
                 current_line[16] = WALL;
             }
             
+            set_vram_update(update_list);
         }
     
         #undef scroll_temp
@@ -1698,6 +1699,7 @@ void main(void){
     
 	while(1){
 		ppu_wait_frame();
+        set_vram_update(NULL);
 		spr=0;
         oam_clear();
         #ifdef DEBUG

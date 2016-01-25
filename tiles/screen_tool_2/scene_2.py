@@ -8,8 +8,8 @@ bgcolor = 0;
 pallettes = [];
 
 pallette_grid = [[False for x in range(15)] for x in range(16)];
+pallette_grid_index = [[0 for x in range(16)] for x in range(16)];
 invalid_grid = [[False for x in range(30)] for x in range(32)];
-
 
 tile_grid = [[False for x in range(30)] for x in range(32)];
 tile_added_grid = [[False for x in range(30)] for x in range(32)];
@@ -118,7 +118,8 @@ def findPallettes(img, pix):
         for i in xrange(a):
             if (pallette_grid[i][j] in pallettes) == False:
                 pallette_grid[i][j] = False;
-
+            else:
+                pallette_grid_index[i][j] = pallettes.index(pallette_grid[i][j]);
     
 def printPallettes(img, pix):
     pimg = Image.new("RGB", (256, 300), "white");
@@ -310,7 +311,7 @@ def findTiles(img, pix):
                     t2 = tiles[x][y];
                     if t == t2:
                         found_tile = t2;
-                        found_tile_index = x*16+y;
+                        found_tile_index = x+y*16;
                         is_new = is_tile_new[x][y];
                         break;
                     
@@ -320,7 +321,7 @@ def findTiles(img, pix):
                 else:
                     tile_added_grid[i][j] = True;
                     new_index = empty_tiles.pop();
-                    tile_grid_index[i][j] = new_index[0]*16+new_index[1];
+                    tile_grid_index[i][j] = new_index[0]+new_index[1]*16;
                     tiles[new_index[0]][new_index[1]] = t;
                     is_tile_empty[new_index[0]][new_index[1]] = False;
                     is_tile_new[new_index[0]][new_index[1]] = True;
@@ -331,7 +332,149 @@ def findTiles(img, pix):
                 tile_grid[i][j] = found_tile;
                 if is_new:
                     tile_added_grid[i][j] = True;
-                    
+
+def print_dump(img, pix):
+    invalid = False;
+    for v in invalid_grid:
+        for t in v:
+            if t:
+                invalid = True;
+                break;
+        if invalid:
+            break;
+    
+    extra_tiles_added = False;
+    for v in tile_added_grid:
+        for t in v:
+            if t:
+                extra_tiles_added = True;
+                break;
+        if invalid:
+            break;
+            
+    if invalid:
+        dump.write("There are errors in tiles/colors\n");
+        return;
+    
+    dump.write("Files parsed correctly\n");
+    
+    if extra_tiles_added:
+        dump.write("Extra tiles are added\n");
+    else:
+        dump.write("No extra tiles were necessary\n");
+    
+    
+    a = img.size[0] / 8;
+    b = img.size[1] / 8;
+    print(tile_grid_index[0][0], hex(tile_grid_index[0][0]));
+    if a == 32 and b == 30:
+        src = []
+
+        for j in xrange(img.size[1]/8):
+            for i in xrange(img.size[0]/8):
+                src.append(tile_grid_index[i][j])
+
+        for j in xrange(img.size[1]/32 + 1):
+            for i in xrange(img.size[0]/32):
+                t = 0
+                t |= pallette_grid_index[i*2][j*2]
+                t |= pallette_grid_index[i*2+1][j*2]<<2
+                if j != img.size[1]/32:
+                    t |= pallette_grid_index[i*2][j*2+1]<<4
+                    t |= pallette_grid_index[i*2+1][j*2+1]<<6
+                src.append(t)
+
+                
+
+        src.append(t)
+        stat = []
+
+        for i in xrange(256):
+            stat.append(0)
+        for i in src:
+            stat[i]+=1;
+
+        min=256;
+        tag=255;
+
+        for i in range(256):
+            if stat[i]<min:
+                min=stat[i]
+                tag=i
+
+        print(tag);        
+        dst = []
+        dst.append(tag)
+        leng=0
+        sym=-1
+
+        size = len(src)
+        for i in xrange(size):
+            if src[i]!=sym or leng==255 or i==size-1:
+                if src[i]==sym and i==size-1:
+                    leng+=1;
+                if leng > 0:
+                    dst.append(sym)
+                if leng>1:
+                    if leng==2:
+                        dst.append(sym)
+                    else:
+                        dst.append(tag)
+                        dst.append(leng-1)
+                sym=src[i];
+                leng=1
+            else:
+                leng+=1
+                
+        dst.append(tag)
+        dst.append(0)
+
+        dump.write('\nunrle data\n') 
+        c = 16
+        for i in dst:
+            dump.write("0x");
+            if(i < 16):
+                dump.write("0");
+            dump.write(format(i, 'x'));
+            dump.write(", ");
+            c-=1
+            if c == 0:
+                c = 16
+                dump.write('\n') 
+
+        dump.write("\n\ntiles for each row\n");
+        for j in xrange(b):
+            for i in xrange(a):
+                dump.write("0x");
+                if(tile_grid_index[i][j] < 16):
+                    dump.write("0");
+                dump.write(format(tile_grid_index[i][j], 'x'));
+                dump.write(", ");
+            dump.write("\n");
+                
+
+        dump.write("\ncolors for each row group\n");
+        
+    color_a = (a/4);
+    if a%4 != 0:
+        a+=1;
+        
+    color_b = (b/4);
+    if b%4 != 0:
+        color_b+=1;
+    for j in xrange(color_b):
+        for i in xrange(color_a):
+            val = (pallette_grid_index[i*2][j*2] << 0) | (pallette_grid_index[i*2+1][j*2] << 2) | (pallette_grid_index[i*2][j*2+1] << 4) | (pallette_grid_index[i*2+1][j*2+1] << 6);
+            
+            dump.write("0x");
+            if(val < 16):
+                dump.write("0");
+            dump.write(format(val, 'x'));
+            dump.write(", ");
+        dump.write("\n")
+    
+    
+    
 pal_img = Image.open("pallette.bmp");
 pal_pix = pal_img.load();
 
@@ -354,3 +497,5 @@ findTiles(bg_img, bg_pix);
 
 printPallettes(bg_img, bg_pix);
 printTileset(bg_img, bg_pix);
+
+print_dump(bg_img, bg_pix);
